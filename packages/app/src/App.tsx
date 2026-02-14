@@ -32,6 +32,7 @@ import { ClusterDetailPage } from './components/clusters/ClusterDetailPage';
 import { CostPage } from './components/cost/CostPage';
 import { DocsPage } from './components/docs/DocsPage';
 import { SupportPage } from './components/support/SupportPage';
+import { DoraMetricsPage } from './components/dora/DoraMetricsPage';
 
 import {
   AlertDisplay,
@@ -122,6 +123,7 @@ const routes = (
     </Route>
     <Route path="/docs" element={<DocsPage />} />
     <Route path="/support" element={<SupportPage />} />
+    <Route path="/dora" element={<DoraMetricsPage />} />
     <Route
       path="/docs/:namespace/:kind/:name/*"
       element={<TechDocsReaderPage />}

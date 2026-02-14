@@ -142,6 +142,20 @@ const layouts: Record<string, LogoPlacement[]> = {
     { left: '97%', top: 6,   size: 62,  rotate: -8,  opacity: 0.07 },
   ],
 
+  // DORA — ascending pattern, symbolizing improvement
+  dora: [
+    { left: '1%',  top: 24,  size: 60,  rotate: -8,  opacity: 0.08 },
+    { left: '11%', top: 16,  size: 68,  rotate: 12,  opacity: 0.09 },
+    { left: '22%', top: 8,   size: 76,  rotate: -4,  opacity: 0.10 },
+    { left: '33%', top: 0,   size: 84,  rotate: 14,  opacity: 0.11 },
+    { left: '44%', top: -8,  size: 92,  rotate: -10, opacity: 0.12 },
+    { left: '54%', top: -16, size: 100, rotate: 6,   opacity: 0.13 },
+    { left: '64%', top: -12, size: 88,  rotate: -16, opacity: 0.11 },
+    { left: '74%', top: -20, size: 96,  rotate: 8,   opacity: 0.12 },
+    { left: '84%', top: -24, size: 108, rotate: -6,  opacity: 0.13 },
+    { left: '94%', top: -28, size: 116, rotate: 18,  opacity: 0.14 },
+  ],
+
   // ClusterDetail — big corners, small middle
   clusterDetail: [
     { left: '0%',  top: -18, size: 130, rotate: 15,  opacity: 0.10 },

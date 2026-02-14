@@ -473,6 +473,78 @@ const toolCards: ToolCardDef[] = [
     ],
   },
   {
+    name: 'Jira',
+    logo: '/logos/jira.svg',
+    accent: '#0052CC',
+    description: 'Agile planning and delivery tracking for platform roadmap items, stories, and release epics.',
+    sections: [
+      {
+        title: 'Active Sprints',
+        links: [
+          {
+            label: 'Current Sprint Board',
+            icon: <DashboardIcon style={{ fontSize: 18 }} />,
+            urls: {
+              production: 'https://jira.prod.ms.com/jira/software/c/projects/KAAS/boards/12',
+              staging: 'https://jira.stg.ms.com/jira/software/c/projects/KAAS/boards/12',
+              development: 'https://jira.dev.ms.com/jira/software/c/projects/KAAS/boards/12',
+            },
+          },
+          {
+            label: 'Sprint Backlog',
+            icon: <ListAltIcon style={{ fontSize: 18 }} />,
+            urls: {
+              production: 'https://jira.prod.ms.com/jira/software/c/projects/KAAS/backlog',
+              staging: 'https://jira.stg.ms.com/jira/software/c/projects/KAAS/backlog',
+              development: 'https://jira.dev.ms.com/jira/software/c/projects/KAAS/backlog',
+            },
+          },
+          {
+            label: 'Sprint Burndown',
+            icon: <TimelineIcon style={{ fontSize: 18 }} />,
+            urls: {
+              production: 'https://jira.prod.ms.com/secure/RapidBoard.jspa?rapidView=12&view=reporting&chart=burndownChart',
+              staging: 'https://jira.stg.ms.com/secure/RapidBoard.jspa?rapidView=12&view=reporting&chart=burndownChart',
+              development: 'https://jira.dev.ms.com/secure/RapidBoard.jspa?rapidView=12&view=reporting&chart=burndownChart',
+            },
+          },
+        ],
+      },
+      {
+        title: 'Stories & Epics',
+        links: [
+          {
+            label: 'Open Stories',
+            icon: <BookmarkIcon style={{ fontSize: 18 }} />,
+            urls: {
+              production: 'https://jira.prod.ms.com/issues/?jql=project%20%3D%20KAAS%20AND%20issuetype%20%3D%20Story%20AND%20statusCategory%20!%3D%20Done',
+              staging: 'https://jira.stg.ms.com/issues/?jql=project%20%3D%20KAAS%20AND%20issuetype%20%3D%20Story%20AND%20statusCategory%20!%3D%20Done',
+              development: 'https://jira.dev.ms.com/issues/?jql=project%20%3D%20KAAS%20AND%20issuetype%20%3D%20Story%20AND%20statusCategory%20!%3D%20Done',
+            },
+          },
+          {
+            label: 'Platform Epics',
+            icon: <FolderIcon style={{ fontSize: 18 }} />,
+            urls: {
+              production: 'https://jira.prod.ms.com/issues/?jql=project%20%3D%20KAAS%20AND%20issuetype%20%3D%20Epic%20ORDER%20BY%20updated%20DESC',
+              staging: 'https://jira.stg.ms.com/issues/?jql=project%20%3D%20KAAS%20AND%20issuetype%20%3D%20Epic%20ORDER%20BY%20updated%20DESC',
+              development: 'https://jira.dev.ms.com/issues/?jql=project%20%3D%20KAAS%20AND%20issuetype%20%3D%20Epic%20ORDER%20BY%20updated%20DESC',
+            },
+          },
+          {
+            label: 'Status Summary',
+            icon: <AssessmentIcon style={{ fontSize: 18 }} />,
+            urls: {
+              production: 'https://jira.prod.ms.com/issues/?jql=project%20%3D%20KAAS%20ORDER%20BY%20status%20ASC%2C%20priority%20DESC',
+              staging: 'https://jira.stg.ms.com/issues/?jql=project%20%3D%20KAAS%20ORDER%20BY%20status%20ASC%2C%20priority%20DESC',
+              development: 'https://jira.dev.ms.com/issues/?jql=project%20%3D%20KAAS%20ORDER%20BY%20status%20ASC%2C%20priority%20DESC',
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
     name: 'Terraform Enterprise',
     logo: '/logos/terraform.svg',
     accent: '#7B42BC',
@@ -620,6 +692,7 @@ const quickLinks = [
   { label: 'PagerDuty', icon: <NotificationsActiveIcon />, envUrls: { production: 'https://morganstanley.pagerduty.com', staging: 'https://morganstanley.pagerduty.com', development: 'https://morganstanley.pagerduty.com' } },
   { label: 'Jenkins', icon: <BuildIcon />, envUrls: { production: 'https://jenkins.prod.ms.com', staging: 'https://jenkins.stg.ms.com', development: 'https://jenkins.dev.ms.com' } },
   { label: 'GitHub', icon: <CodeIcon />, envUrls: { production: 'https://github.morganstanley.com/kaas', staging: 'https://github.morganstanley.com/kaas', development: 'https://github.morganstanley.com/kaas' } },
+  { label: 'Jira', icon: <BookmarkIcon />, envUrls: { production: 'https://jira.prod.ms.com/jira/software/c/projects/KAAS/boards/12', staging: 'https://jira.stg.ms.com/jira/software/c/projects/KAAS/boards/12', development: 'https://jira.dev.ms.com/jira/software/c/projects/KAAS/boards/12' } },
   { label: 'Terraform', icon: <StorageIcon />, envUrls: { production: 'https://tfe.prod.ms.com', staging: 'https://tfe.stg.ms.com', development: 'https://tfe.dev.ms.com' } },
 ];
 
@@ -638,7 +711,7 @@ export const ToolsPage = () => {
       : tabValue === 1
         ? toolCards.filter(t => ['Grafana', 'PagerDuty'].includes(t.name))
         : tabValue === 2
-          ? toolCards.filter(t => ['GitHub', 'Jenkins'].includes(t.name))
+          ? toolCards.filter(t => ['GitHub', 'Jenkins', 'Jira'].includes(t.name))
           : toolCards.filter(t => ['Terraform Enterprise'].includes(t.name));
 
   return (

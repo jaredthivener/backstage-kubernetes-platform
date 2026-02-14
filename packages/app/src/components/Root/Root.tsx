@@ -10,6 +10,7 @@ import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import AttachMoneyIcon from '@material-ui/icons/AttachMoney';
 import HeadsetMicIcon from '@material-ui/icons/HeadsetMic';
+import SpeedIcon from '@material-ui/icons/Speed';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -106,6 +107,7 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
         <SidebarItem icon={SecurityIcon} to="security" text="Security" />
         <SidebarItem icon={AttachMoneyIcon} to="cost" text="Cost" />
         <SidebarItem icon={AssessmentIcon} to="monitoring" text="Monitoring" />
+        <SidebarItem icon={SpeedIcon} to="dora" text="DORA Metrics" />
         <SidebarDivider />
         {/* Standard Backstage */}
         <SidebarItem icon={BuildIcon} to="tools" text="Tools" />

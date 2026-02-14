@@ -54,6 +54,7 @@ import SpeedIcon from '@material-ui/icons/Speed';
 import ScheduleIcon from '@material-ui/icons/Schedule';
 import NotificationsIcon from '@material-ui/icons/Notifications';
 import AssessmentIcon from '@material-ui/icons/Assessment';
+import AccountTreeIcon from '@material-ui/icons/AccountTree';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -72,6 +73,17 @@ const useStyles = makeStyles(theme => ({
   tabBar: {
     marginBottom: theme.spacing(3),
     borderBottom: `1px solid ${theme.palette.divider}`,
+    borderRadius: 10,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+    paddingLeft: theme.spacing(1),
+    paddingRight: theme.spacing(1),
+  },
+  tabItem: {
+    minHeight: 46,
+    fontWeight: 600,
+    textTransform: 'none' as const,
+    fontSize: '0.82rem',
+    letterSpacing: 0.2,
   },
   metricCard: {
     textAlign: 'center' as const,
@@ -151,6 +163,17 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     justifyContent: 'space-between',
     padding: '6px 0',
+  },
+  gitopsTimelineItem: {
+    borderLeft: `3px solid ${theme.palette.primary.main}`,
+    marginBottom: theme.spacing(1),
+    paddingLeft: theme.spacing(1.5),
+    borderRadius: '0 4px 4px 0',
+  },
+  gitopsMiniCard: {
+    height: '100%',
+    border: `1px solid ${theme.palette.divider}`,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
   },
 }));
 
@@ -1381,6 +1404,188 @@ const InsightsTab = ({ data }: { data: ClusterDetail }) => {
   );
 };
 
+// ---- GitOps Tab ----
+const GitOpsTab = ({ data }: { data: ClusterDetail }) => {
+  const classes = useStyles();
+  const gitopsEvents = data.events.filter(event =>
+    event.source === 'ArgoCD' || event.source === 'GitOps' || event.type === 'deployment' || event.type === 'config' || event.type === 'upgrade'
+  );
+  const releaseEvents = gitopsEvents.filter(event => event.type === 'deployment' || event.type === 'upgrade');
+  const syncIssues = gitopsEvents.filter(event => /fail|error|drift|degraded/i.test(event.message)).length;
+  const managedAppCount = Math.max(1, Math.min(6, data.addons.length - 1));
+  const managedApps = [
+    {
+      app: `${(data.addons[0] || 'platform').replace(/-/g, ' ')}`,
+      sync: 'Synced',
+      health: 'Healthy',
+      revision: 'main@a1f9d2c',
+      updated: '8m ago',
+    },
+    {
+      app: `${(data.addons[1] || 'security').replace(/-/g, ' ')}`,
+      sync: 'Synced',
+      health: 'Healthy',
+      revision: 'main@6c4b12e',
+      updated: '22m ago',
+    },
+    {
+      app: `${(data.addons[2] || 'observability').replace(/-/g, ' ')}`,
+      sync: syncIssues > 0 ? 'OutOfSync' : 'Synced',
+      health: syncIssues > 0 ? 'Progressing' : 'Healthy',
+      revision: 'main@9de31fa',
+      updated: '47m ago',
+    },
+  ];
+
+  return (
+    <Grid container spacing={3}>
+      <Grid item xs={12}>
+        <Typography variant="h6" className={classes.sectionTitle} style={{ marginTop: 0 }}>
+          <Box display="flex" alignItems="center" gridGap={8}>
+            <AccountTreeIcon color="primary" /> GitOps & ArgoCD Delivery
+          </Box>
+        </Typography>
+      </Grid>
+
+      <Grid item xs={12} sm={4}>
+        <Card className={classes.gitopsMiniCard}>
+          <CardContent style={{ textAlign: 'center' }}>
+            <Typography variant="overline" color="textSecondary">Managed Apps</Typography>
+            <Typography className={classes.metricValue} style={{ color: '#1976D2' }}>{managedAppCount}</Typography>
+            <Typography variant="caption" color="textSecondary">ArgoCD application sets</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid item xs={12} sm={4}>
+        <Card className={classes.gitopsMiniCard}>
+          <CardContent style={{ textAlign: 'center' }}>
+            <Typography variant="overline" color="textSecondary">Sync Health</Typography>
+            <Typography className={classes.metricValue} style={{ color: syncIssues > 0 ? '#FF9800' : '#43A047' }}>
+              {syncIssues > 0 ? `${syncIssues} issue${syncIssues > 1 ? 's' : ''}` : 'Stable'}
+            </Typography>
+            <Typography variant="caption" color="textSecondary">drift and sync status</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid item xs={12} sm={4}>
+        <Card className={classes.gitopsMiniCard}>
+          <CardContent style={{ textAlign: 'center' }}>
+            <Typography variant="overline" color="textSecondary">Recent Releases</Typography>
+            <Typography className={classes.metricValue} style={{ color: '#7B1FA2' }}>{releaseEvents.length}</Typography>
+            <Typography variant="caption" color="textSecondary">Git-driven deploy events</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      <Grid item xs={12} md={7}>
+        <Card style={{ height: '100%' }}>
+          <CardContent>
+            <Typography variant="h6" className={classes.sectionTitle} style={{ marginTop: 0 }}>
+              ArgoCD Applications
+            </Typography>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell style={{ fontWeight: 600 }}>Application</TableCell>
+                    <TableCell style={{ fontWeight: 600 }}>Sync</TableCell>
+                    <TableCell style={{ fontWeight: 600 }}>Health</TableCell>
+                    <TableCell style={{ fontWeight: 600 }}>Revision</TableCell>
+                    <TableCell style={{ fontWeight: 600 }}>Last Updated</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {managedApps.map((application, index) => (
+                    <TableRow key={`${application.app}-${index}`} hover>
+                      <TableCell>
+                        <Typography variant="body2" style={{ fontWeight: 600, textTransform: 'capitalize' }}>
+                          {application.app}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={application.sync}
+                          style={{
+                            height: 20,
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            backgroundColor: application.sync === 'Synced' ? '#E8F5E9' : '#FFF3E0',
+                            color: application.sync === 'Synced' ? '#2E7D32' : '#E65100',
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={application.health}
+                          style={{
+                            height: 20,
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            backgroundColor: application.health === 'Healthy' ? '#E3F2FD' : '#FFF8E1',
+                            color: application.health === 'Healthy' ? '#1565C0' : '#F57F17',
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                          {application.revision}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" color="textSecondary">{application.updated}</Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      <Grid item xs={12} md={5}>
+        <Card style={{ height: '100%' }}>
+          <CardContent>
+            <Typography variant="h6" className={classes.sectionTitle} style={{ marginTop: 0 }}>
+              GitOps Event Stream
+            </Typography>
+            {gitopsEvents.length === 0 ? (
+              <Box py={3} textAlign="center">
+                <InfoIcon style={{ color: '#9E9E9E', fontSize: 40 }} />
+                <Typography variant="body2" color="textSecondary" style={{ marginTop: 8 }}>
+                  No GitOps events recorded for this cluster
+                </Typography>
+              </Box>
+            ) : (
+              <List dense disablePadding>
+                {gitopsEvents.slice(0, 8).map((event, index) => (
+                  <ListItem key={`${event.message}-${index}`} className={classes.gitopsTimelineItem}>
+                    <ListItemIcon style={{ minWidth: 32 }}>
+                      {event.type === 'deployment' || event.type === 'upgrade' ? (
+                        <UpdateIcon style={{ color: '#1976D2', fontSize: 18 }} />
+                      ) : event.type === 'config' ? (
+                        <SettingsIcon style={{ color: '#7B1FA2', fontSize: 18 }} />
+                      ) : (
+                        <InfoIcon style={{ color: '#9E9E9E', fontSize: 18 }} />
+                      )}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={<Typography variant="body2" style={{ fontWeight: 500 }}>{event.message}</Typography>}
+                      secondary={`${event.time} — ${event.source}`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  );
+};
+
 // ---- Alerts Tab ----
 const AlertsTab = ({ data }: { data: ClusterDetail }) => {
   const classes = useStyles();
@@ -1682,6 +1887,7 @@ export const ClusterDetailPage = () => {
   const data = clusterDetailsData[name || ''] || defaultClusterDetail;
   const csp = entity?.metadata?.annotations?.['morgan-stanley.com/csp'] || 'unknown';
   const env = entity?.metadata?.annotations?.['morgan-stanley.com/environment'] || '';
+  const gitopsEventCount = data.events.filter(event => event.source === 'ArgoCD' || event.source === 'GitOps').length;
 
   if (loading) {
     return (
@@ -1740,12 +1946,34 @@ export const ClusterDetailPage = () => {
           textColor="primary"
           className={classes.tabBar}
         >
-          <Tab label="Overview" />
-          <Tab label="Security" />
-          <Tab label="Monitoring" />
-          <Tab label="Cost" />
-          <Tab label="Insights" />
-          <Tab label={<Box display="flex" alignItems="center" gridGap={4}><NotificationsIcon style={{ fontSize: 18 }} /> Alerts {data.alerts.length > 0 && <Chip size="small" label={data.alerts.length} style={{ height: 18, fontSize: '0.65rem', fontWeight: 700, backgroundColor: data.alerts.some(a => a.severity === 'critical') ? '#F44336' : '#FF9800', color: '#fff', marginLeft: 2 }} />}</Box>} />
+          <Tab className={classes.tabItem} label="Overview" />
+          <Tab className={classes.tabItem} label="Security" />
+          <Tab className={classes.tabItem} label="Monitoring" />
+          <Tab className={classes.tabItem} label="Cost" />
+          <Tab className={classes.tabItem} label="Insights" />
+          <Tab
+            className={classes.tabItem}
+            label={
+              <Box display="flex" alignItems="center" gridGap={4}>
+                <AccountTreeIcon style={{ fontSize: 18 }} /> GitOps
+                {gitopsEventCount > 0 && (
+                  <Chip
+                    size="small"
+                    label={gitopsEventCount}
+                    style={{
+                      height: 18,
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      backgroundColor: '#1976D2',
+                      color: '#fff',
+                      marginLeft: 2,
+                    }}
+                  />
+                )}
+              </Box>
+            }
+          />
+          <Tab className={classes.tabItem} label={<Box display="flex" alignItems="center" gridGap={4}><NotificationsIcon style={{ fontSize: 18 }} /> Alerts {data.alerts.length > 0 && <Chip size="small" label={data.alerts.length} style={{ height: 18, fontSize: '0.65rem', fontWeight: 700, backgroundColor: data.alerts.some(a => a.severity === 'critical') ? '#F44336' : '#FF9800', color: '#fff', marginLeft: 2 }} />}</Box>} />
         </Tabs>
 
         {tab === 0 && <OverviewTab data={data} entity={entity} />}
@@ -1753,7 +1981,8 @@ export const ClusterDetailPage = () => {
         {tab === 2 && <MonitoringTab data={data} />}
         {tab === 3 && <CostTab data={data} />}
         {tab === 4 && <InsightsTab data={data} />}
-        {tab === 5 && <AlertsTab data={data} />}
+        {tab === 5 && <GitOpsTab data={data} />}
+        {tab === 6 && <AlertsTab data={data} />}
       </Content>
     </Page>
   );
