@@ -180,7 +180,7 @@ catalog:
     - type: file
       target: ../../catalog/systems.yaml
       rules:
-        - allow: [System]
+        - allow: [System, Resource, Component]
     - type: file
       target: ../../catalog/groups.yaml
       rules:
