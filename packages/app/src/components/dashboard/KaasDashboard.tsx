@@ -13,9 +13,11 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  ListItemAvatar,
   ListItemSecondaryAction,
   IconButton,
+  Tabs,
+  Tab,
+  InputBase,
   makeStyles,
   Box,
   Divider,
@@ -46,6 +48,9 @@ import SchoolIcon from '@material-ui/icons/School';
 import EventIcon from '@material-ui/icons/Event';
 import NewReleasesIcon from '@material-ui/icons/NewReleases';
 import SpeedIcon from '@material-ui/icons/Speed';
+import EmailIcon from '@material-ui/icons/Email';
+import SearchIcon from '@material-ui/icons/Search';
+import CloseIcon from '@material-ui/icons/Close';
 import {
   Header,
   Page,
@@ -88,6 +93,15 @@ const useStyles = makeStyles(theme => ({
       borderRadius: '50%',
       background: 'rgba(255,255,255,0.05)',
     },
+  },
+  welcomeMascot: {
+    position: 'absolute',
+    right: theme.spacing(70),
+    bottom: 0,
+    height: 155,
+    objectFit: 'contain',
+    filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))',
+    pointerEvents: 'none',
   },
   welcomeTitle: {
     fontSize: '1.8rem',
@@ -146,6 +160,31 @@ const useStyles = makeStyles(theme => ({
     justifyContent: 'space-between',
     marginBottom: theme.spacing(1),
   },
+  dashboardColumn: {
+    display: 'grid',
+    gap: theme.spacing(3),
+  },
+  widgetCard: {
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    borderRadius: 12,
+  },
+  widgetBody: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+  },
+  widgetTall: {
+    minHeight: 420,
+  },
+  widgetMedium: {
+    minHeight: 360,
+  },
+  widgetCompact: {
+    minHeight: 300,
+  },
   clusterRow: {
     borderLeft: `3px solid ${theme.palette.primary.main}`,
     marginBottom: theme.spacing(1),
@@ -158,6 +197,97 @@ const useStyles = makeStyles(theme => ({
     borderLeft: `3px solid ${theme.palette.warning.main}`,
     marginBottom: theme.spacing(1),
     borderRadius: 4,
+  },
+  githubToolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    padding: theme.spacing(1, 2),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+  },
+  githubFilter: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 999,
+    padding: theme.spacing(0.25, 1),
+    width: 280,
+    maxWidth: '100%',
+  },
+  githubFilterInput: {
+    fontSize: '0.8rem',
+    width: '100%',
+  },
+  githubTabs: {
+    minHeight: 34,
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    '& .MuiTab-root': {
+      minHeight: 34,
+      fontSize: '0.72rem',
+      textTransform: 'none',
+      minWidth: 88,
+      fontWeight: 600,
+    },
+  },
+  githubTableHeader: {
+    display: 'grid',
+    gridTemplateColumns: '2.5fr 1.8fr 1fr 1.2fr 1fr 1fr 1fr 1fr',
+    gap: theme.spacing(1),
+    alignItems: 'center',
+    padding: theme.spacing(1, 2),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+  },
+  githubHeaderText: {
+    fontSize: '0.68rem',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontWeight: 700,
+    color: theme.palette.text.secondary,
+  },
+  githubRow: {
+    display: 'grid',
+    gridTemplateColumns: '2.5fr 1.8fr 1fr 1.2fr 1fr 1fr 1fr 1fr',
+    gap: theme.spacing(1),
+    alignItems: 'center',
+    padding: theme.spacing(1.1, 2),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    '&:last-child': {
+      borderBottom: 'none',
+    },
+  },
+  githubTitleLink: {
+    color: theme.palette.primary.main,
+    textDecoration: 'none',
+    fontSize: '0.78rem',
+    fontWeight: 600,
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
+  githubCellText: {
+    fontSize: '0.74rem',
+    color: theme.palette.text.secondary,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  githubReviewers: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+  },
+  githubReviewerAvatar: {
+    width: 20,
+    height: 20,
+    fontSize: '0.62rem',
+    backgroundColor: '#24292E',
+  },
+  githubChipCompact: {
+    height: 20,
+    fontSize: '0.65rem',
+    fontWeight: 600,
   },
   criticalFinding: {
     borderLeft: `3px solid ${theme.palette.error.main}`,
@@ -275,6 +405,23 @@ const useStyles = makeStyles(theme => ({
     border: '1px solid rgba(76,175,80,0.3)',
     backgroundColor: 'rgba(76,175,80,0.05)',
     marginBottom: 8,
+  },
+  onCallActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+  },
+  teamsIconButton: {
+    width: 28,
+    height: 28,
+    padding: 4,
+    borderRadius: 6,
+    border: `1px solid ${theme.palette.divider}`,
+  },
+  teamsIcon: {
+    width: 16,
+    height: 16,
+    objectFit: 'contain',
   },
   observabilityCard: {
     borderRadius: 12,
@@ -407,7 +554,12 @@ interface PullRequest {
   repo: string;
   author: string;
   authorAvatar: string;
+  owner: string;
   status: 'open' | 'review' | 'approved';
+  checkStatus: 'passing' | 'failing' | 'pending';
+  newComments: number;
+  reviewers: string[];
+  createdAt: string;
   updatedAt: string;
   url: string;
 }
@@ -464,7 +616,7 @@ const MyClustersWidget = () => {
     entity.metadata.annotations?.['morgan-stanley.com/cluster-status'] || 'running';
 
   return (
-    <Card>
+    <Card className={`${classes.widgetCard} ${classes.widgetMedium}`}>
       <CardHeader
         title="My Clusters"
         titleTypographyProps={{ variant: 'h6' }}
@@ -476,7 +628,7 @@ const MyClustersWidget = () => {
         }
       />
       <Divider />
-      <CardContent style={{ padding: 0 }}>
+      <CardContent style={{ padding: 0 }} className={classes.widgetBody}>
         {loading && <LinearProgress />}
         {!loading && clusters.length === 0 && (
           <Box className={classes.emptyState}>
@@ -544,6 +696,8 @@ const MyClustersWidget = () => {
 // ---------------------------------------------------------------------------
 const PullRequestsWidget = () => {
   const classes = useStyles();
+  const [activeTab, setActiveTab] = useState(0);
+  const [filterQuery, setFilterQuery] = useState('');
 
   // In production, this would call the GitHub API via the proxy backend.
   // For now we render placeholder data that demonstrates the layout.
@@ -554,7 +708,12 @@ const PullRequestsWidget = () => {
       repo: 'kaas-clusters/prod-trading-aks',
       author: 'jdoe',
       authorAvatar: '',
+      owner: 'jdoe',
       status: 'review',
+      checkStatus: 'passing',
+      newComments: 2,
+      reviewers: ['asmith', 'mchen'],
+      createdAt: '1 day ago',
       updatedAt: '2 hours ago',
       url: '#',
     },
@@ -564,7 +723,12 @@ const PullRequestsWidget = () => {
       repo: 'kaas-clusters/staging-risk-eks',
       author: 'asmith',
       authorAvatar: '',
+      owner: 'asmith',
       status: 'open',
+      checkStatus: 'pending',
+      newComments: 1,
+      reviewers: ['jdoe'],
+      createdAt: '2 days ago',
       updatedAt: '5 hours ago',
       url: '#',
     },
@@ -574,7 +738,12 @@ const PullRequestsWidget = () => {
       repo: 'kaas-platform/monitoring-config',
       author: 'mchen',
       authorAvatar: '',
+      owner: 'mchen',
       status: 'approved',
+      checkStatus: 'passing',
+      newComments: 0,
+      reviewers: ['jdoe', 'asmith'],
+      createdAt: '3 days ago',
       updatedAt: '1 day ago',
       url: '#',
     },
@@ -584,77 +753,148 @@ const PullRequestsWidget = () => {
       repo: 'kaas-clusters/wealth-mgmt-gke',
       author: 'jdoe',
       authorAvatar: '',
+      owner: 'jdoe',
       status: 'open',
+      checkStatus: 'failing',
+      newComments: 4,
+      reviewers: ['mchen'],
+      createdAt: '1 day ago',
       updatedAt: '1 day ago',
       url: '#',
     },
   ]);
 
-  const statusIcon = (status: PullRequest['status']) => {
-    switch (status) {
-      case 'approved':
-        return <Chip size="small" label="Approved" style={{ backgroundColor: '#4CAF50', color: '#fff', fontWeight: 600, fontSize: '0.7rem' }} />;
-      case 'review':
-        return <Chip size="small" label="In Review" style={{ backgroundColor: '#FF9800', color: '#fff', fontWeight: 600, fontSize: '0.7rem' }} />;
-      default:
-        return <Chip size="small" label="Open" variant="outlined" style={{ fontWeight: 600, fontSize: '0.7rem' }} />;
+  const tabConfig = [
+    { label: 'Pull Requests', key: 'pull-requests' },
+    { label: 'Code Reviews', key: 'code-reviews' },
+    { label: 'Recently Merged', key: 'recently-merged' },
+    { label: 'Find Any Commit', key: 'find-any-commit' },
+  ];
+
+  const dataByTab = [
+    pullRequests,
+    pullRequests.filter(pr => pr.status === 'review'),
+    pullRequests.filter(pr => pr.status === 'approved'),
+    pullRequests,
+  ];
+
+  const visibleRows = dataByTab[activeTab].filter(pr =>
+    `${pr.title} ${pr.repo} ${pr.owner}`.toLowerCase().includes(filterQuery.toLowerCase()),
+  );
+
+  const checkChip = (status: PullRequest['checkStatus']) => {
+    if (status === 'passing') {
+      return <Chip size="small" label="Passing" className={classes.githubChipCompact} style={{ backgroundColor: 'rgba(76,175,80,0.18)', color: '#66BB6A' }} />;
     }
+    if (status === 'failing') {
+      return <Chip size="small" label="Failing" className={classes.githubChipCompact} style={{ backgroundColor: 'rgba(244,67,54,0.18)', color: '#EF5350' }} />;
+    }
+    return <Chip size="small" label="Pending" className={classes.githubChipCompact} style={{ backgroundColor: 'rgba(255,152,0,0.18)', color: '#FFB74D' }} />;
   };
 
   return (
-    <Card>
+    <Card className={`${classes.widgetCard} ${classes.widgetMedium}`}>
       <CardHeader
-        title="Open Pull Requests"
+        title="GitHub"
         titleTypographyProps={{ variant: 'h6' }}
         avatar={<GitHubIcon />}
         action={
           <Chip
             size="small"
-            label={`${pullRequests.length} open`}
+            label={`${pullRequests.filter(pr => pr.status === 'open' || pr.status === 'review').length} open`}
             color="primary"
             variant="outlined"
           />
         }
       />
       <Divider />
-      <CardContent style={{ padding: 0 }}>
-        <List disablePadding>
-          {pullRequests.map(pr => (
-            <ListItem key={pr.id} className={classes.prRow}>
-              <ListItemAvatar>
-                <Avatar style={{ width: 32, height: 32, fontSize: '0.8rem', backgroundColor: '#24292E' }}>
-                  {pr.author.slice(0, 2).toUpperCase()}
-                </Avatar>
-              </ListItemAvatar>
-              <ListItemText
-                primary={
-                  <Typography variant="body2" style={{ fontWeight: 500 }}>
-                    {pr.title}
-                  </Typography>
-                }
-                secondary={
-                  <span>
-                    {pr.repo} · {pr.author} · {pr.updatedAt}
-                  </span>
-                }
-              />
-              <ListItemSecondaryAction>
-                <Box display="flex" alignItems="center" gridGap={8}>
-                  {statusIcon(pr.status)}
-                  <Tooltip title="Open in GitHub">
-                    <IconButton size="small" href={pr.url} target="_blank" rel="noopener">
-                      <OpenInNewIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </ListItemSecondaryAction>
-            </ListItem>
+      <CardContent style={{ padding: 0 }} className={classes.widgetBody}>
+        <Box className={classes.githubToolbar}>
+          <Box className={classes.githubFilter}>
+            <SearchIcon style={{ fontSize: 16, opacity: 0.7 }} />
+            <InputBase
+              placeholder="Filter issues"
+              value={filterQuery}
+              onChange={e => setFilterQuery(e.target.value)}
+              className={classes.githubFilterInput}
+            />
+          </Box>
+          <Box display="flex" alignItems="center">
+            <Tooltip title="Expand">
+              <IconButton size="small">
+                <OpenInNewIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Close">
+              <IconButton size="small">
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+
+        <Tabs
+          value={activeTab}
+          onChange={(_, value) => setActiveTab(value)}
+          variant="scrollable"
+          scrollButtons="auto"
+          className={classes.githubTabs}
+        >
+          {tabConfig.map(tab => (
+            <Tab key={tab.key} label={tab.label} />
           ))}
-        </List>
+        </Tabs>
+
+        <Box className={classes.githubTableHeader}>
+          <Typography className={classes.githubHeaderText}>Title</Typography>
+          <Typography className={classes.githubHeaderText}>Repo</Typography>
+          <Typography className={classes.githubHeaderText}>Owner</Typography>
+          <Typography className={classes.githubHeaderText}>Check/Build</Typography>
+          <Typography className={classes.githubHeaderText}>Comments</Typography>
+          <Typography className={classes.githubHeaderText}>Reviewers</Typography>
+          <Typography className={classes.githubHeaderText}>Created</Typography>
+          <Typography className={classes.githubHeaderText}>Updated</Typography>
+        </Box>
+
+        {visibleRows.map(pr => (
+          <Box key={pr.id} className={classes.githubRow}>
+            <Box>
+              <a href={pr.url} target="_blank" rel="noopener noreferrer" className={classes.githubTitleLink}>
+                {pr.title}
+              </a>
+            </Box>
+            <Typography className={classes.githubCellText}>{pr.repo}</Typography>
+            <Typography className={classes.githubCellText}>{pr.owner}</Typography>
+            <Box>{checkChip(pr.checkStatus)}</Box>
+            <Typography className={classes.githubCellText}>{pr.newComments}</Typography>
+            <Box className={classes.githubReviewers}>
+              {pr.reviewers.slice(0, 2).map(reviewer => (
+                <Avatar key={reviewer} className={classes.githubReviewerAvatar}>
+                  {reviewer.slice(0, 2).toUpperCase()}
+                </Avatar>
+              ))}
+            </Box>
+            <Typography className={classes.githubCellText}>{pr.createdAt}</Typography>
+            <Box display="flex" alignItems="center" justifyContent="space-between" style={{ gap: 8 }}>
+              <Typography className={classes.githubCellText}>{pr.updatedAt}</Typography>
+              <Tooltip title="Open in GitHub">
+                <IconButton size="small" href={pr.url} target="_blank" rel="noopener noreferrer">
+                  <OpenInNewIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        ))}
+
+        {visibleRows.length === 0 && (
+          <Box className={classes.emptyState}>
+            <Typography variant="body2">No matching GitHub items.</Typography>
+          </Box>
+        )}
       </CardContent>
       <CardActions>
         <Button size="small" color="primary" endIcon={<ArrowForwardIcon />}>
-          View all pull requests
+          Open GitHub
         </Button>
       </CardActions>
     </Card>
@@ -730,7 +970,7 @@ const SecurityFindingsWidget = () => {
     <WarningIcon style={{ color: '#FFC107' }} />;
 
   return (
-    <Card>
+    <Card className={`${classes.widgetCard} ${classes.widgetTall}`}>
       <CardHeader
         title="Security Findings"
         titleTypographyProps={{ variant: 'h6' }}
@@ -750,7 +990,7 @@ const SecurityFindingsWidget = () => {
         }
       />
       <Divider />
-      <CardContent style={{ padding: 0 }}>
+      <CardContent style={{ padding: 0 }} className={classes.widgetBody}>
         <List disablePadding>
           {findings.map(finding => (
             <ListItem key={finding.id} className={severityClass(finding.severity)}>
@@ -826,7 +1066,7 @@ const ClusterCostWidget = () => {
     n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toLocaleString()}`;
 
   return (
-    <Card>
+    <Card className={`${classes.widgetCard} ${classes.widgetMedium}`}>
       <CardHeader
         title="Cluster Costs"
         titleTypographyProps={{ variant: 'h6' }}
@@ -834,7 +1074,7 @@ const ClusterCostWidget = () => {
         subheader="Monthly estimated spend"
       />
       <Divider />
-      <CardContent>
+      <CardContent className={classes.widgetBody}>
         {/* Total + Trend */}
         <Box className={classes.costHeader}>
           <Box>
@@ -977,8 +1217,20 @@ const PagerDutyWidget = () => {
   ]);
 
   const onCallSchedule = [
-    { role: 'Primary On-Call', name: 'Jane Doe (jdoe)', until: 'Feb 17, 09:00' },
-    { role: 'Secondary On-Call', name: 'Alex Smith (asmith)', until: 'Feb 17, 09:00' },
+    {
+      role: 'Primary On-Call',
+      name: 'Jane Doe (jdoe)',
+      email: 'jdoe@morganstanley.com',
+      teamsUser: 'jdoe@morganstanley.com',
+      until: 'Feb 17, 09:00',
+    },
+    {
+      role: 'Secondary On-Call',
+      name: 'Alex Smith (asmith)',
+      email: 'asmith@morganstanley.com',
+      teamsUser: 'asmith@morganstanley.com',
+      until: 'Feb 17, 09:00',
+    },
   ];
 
   const sevColor = (sev: string) =>
@@ -993,7 +1245,7 @@ const PagerDutyWidget = () => {
   };
 
   return (
-    <Card>
+    <Card className={`${classes.widgetCard} ${classes.widgetTall}`}>
       <CardHeader
         title="PagerDuty"
         titleTypographyProps={{ variant: 'h6' }}
@@ -1007,7 +1259,7 @@ const PagerDutyWidget = () => {
         }
       />
       <Divider />
-      <CardContent>
+      <CardContent className={classes.widgetBody}>
         {/* On-call status */}
         <Typography variant="caption" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 1.2, fontSize: '0.65rem', fontWeight: 600 }}>
           On-Call Now
@@ -1021,6 +1273,32 @@ const PagerDutyWidget = () => {
                 <Typography variant="caption" color="textSecondary" style={{ fontSize: '0.7rem' }}>
                   {oc.role} · until {oc.until}
                 </Typography>
+              </Box>
+              <Box className={classes.onCallActions}>
+                <Tooltip title="Chat in Microsoft Teams">
+                  <IconButton
+                    size="small"
+                    className={classes.teamsIconButton}
+                    href={`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(oc.teamsUser)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <img
+                      src="/logos/microsoft-teams.svg"
+                      alt="Microsoft Teams"
+                      className={classes.teamsIcon}
+                    />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Send email">
+                  <IconButton
+                    size="small"
+                    href={`mailto:${oc.email}`}
+                    aria-label={`Email ${oc.name}`}
+                  >
+                    <EmailIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
             </Box>
           ))}
@@ -1077,6 +1355,8 @@ const PagerDutyWidget = () => {
 // Observability Quick-Links (Pinterest-inspired Statsboard widget)
 // ---------------------------------------------------------------------------
 const ObservabilityWidget = () => {
+  const classes = useStyles();
+
   const dashboards = [
     { name: 'Cluster Overview', cluster: 'prod-trading-aks', lastViewed: '10 min ago', url: '/monitoring' },
     { name: 'API Gateway Latency', cluster: 'prod-trading-aks', lastViewed: '25 min ago', url: '/monitoring' },
@@ -1085,7 +1365,7 @@ const ObservabilityWidget = () => {
   ];
 
   return (
-    <Card>
+    <Card className={`${classes.widgetCard} ${classes.widgetCompact}`}>
       <CardHeader
         title="Recent Dashboards"
         titleTypographyProps={{ variant: 'h6' }}
@@ -1093,7 +1373,7 @@ const ObservabilityWidget = () => {
         subheader="Quick access to monitoring views"
       />
       <Divider />
-      <CardContent style={{ padding: 0 }}>
+      <CardContent style={{ padding: 0 }} className={classes.widgetBody}>
         <List disablePadding>
           {dashboards.map((d, i) => (
             <ListItem key={i} button component={Link} to={d.url}>
@@ -1596,6 +1876,11 @@ export const KaasDashboard = () => {
               </Box>
             </Box>
           </Box>
+          <img
+            src="/logos/minions.png"
+            alt="Minions mascot"
+            className={classes.welcomeMascot}
+          />
         </Box>
 
         {/* News Ticker */}
@@ -1615,24 +1900,20 @@ export const KaasDashboard = () => {
         <Grid container spacing={3}>
           {/* Left column: Clusters + PRs + Observability */}
           <Grid item xs={12} md={7}>
-            <Box mb={3}>
+            <Box className={classes.dashboardColumn}>
               <MyClustersWidget />
-            </Box>
-            <Box mb={3}>
               <PullRequestsWidget />
+              <ObservabilityWidget />
             </Box>
-            <ObservabilityWidget />
           </Grid>
 
           {/* Right column: PagerDuty + Costs + Security */}
           <Grid item xs={12} md={5}>
-            <Box mb={3}>
+            <Box className={classes.dashboardColumn}>
               <PagerDutyWidget />
-            </Box>
-            <Box mb={3}>
               <ClusterCostWidget />
+              <SecurityFindingsWidget />
             </Box>
-            <SecurityFindingsWidget />
           </Grid>
         </Grid>
       </Content>

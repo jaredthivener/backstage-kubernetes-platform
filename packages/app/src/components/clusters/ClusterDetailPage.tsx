@@ -56,6 +56,8 @@ import ScheduleIcon from '@material-ui/icons/Schedule';
 import NotificationsIcon from '@material-ui/icons/Notifications';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import AccountTreeIcon from '@material-ui/icons/AccountTree';
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import ReplayIcon from '@material-ui/icons/Replay';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -254,6 +256,51 @@ const useStyles = makeStyles(theme => ({
     display: 'block',
     marginBottom: theme.spacing(1),
   },
+  cicdSummaryCard: {
+    height: '100%',
+    border: `1px solid ${theme.palette.divider}`,
+    borderTopWidth: 3,
+  },
+  cicdRunRow: {
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 8,
+    padding: theme.spacing(1.25),
+    marginBottom: theme.spacing(1),
+    cursor: 'pointer',
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+    },
+  },
+  cicdRunRowActive: {
+    borderColor: theme.palette.primary.main,
+    boxShadow: `0 0 0 1px ${theme.palette.primary.main} inset`,
+  },
+  cicdMetaLabel: {
+    fontSize: '0.72rem',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    color: theme.palette.text.secondary,
+  },
+  cicdMetaValue: {
+    fontSize: '0.85rem',
+    fontWeight: 600,
+  },
+  cicdConsoleCard: {
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  cicdConsoleWindow: {
+    backgroundColor: '#0B1020',
+    color: '#E2E8F0',
+    minHeight: 320,
+    maxHeight: 420,
+    overflowY: 'auto',
+    padding: theme.spacing(1.75),
+    fontFamily: 'monospace',
+    fontSize: '0.8rem',
+    lineHeight: 1.45,
+  },
 }));
 
 // ---------------------------------------------------------------------------
@@ -331,6 +378,98 @@ interface ClusterDetail {
   addons: string[];
   insights: { type: string; title: string; description: string; priority: string }[];
 }
+
+type PipelineStatus = 'running' | 'success' | 'failed';
+
+interface PipelineRun {
+  id: string;
+  workflow: string;
+  branch: string;
+  status: PipelineStatus;
+  commit: string;
+  actor: string;
+  startedAt: string;
+  duration: string;
+  jobs: { name: string; status: PipelineStatus; duration: string }[];
+  logLines: string[];
+}
+
+const buildCicdRuns = (clusterName: string, data: ClusterDetail): PipelineRun[] => {
+  const shortCluster = clusterName || 'cluster';
+  const recentEvent = data.events[0]?.message || 'Deployment activity detected';
+
+  return [
+    {
+      id: `${shortCluster}-run-1`,
+      workflow: 'cluster-delivery.yaml',
+      branch: 'main',
+      status: 'running',
+      commit: '9de31fa',
+      actor: 'jdoe',
+      startedAt: '4 min ago',
+      duration: '04:12',
+      jobs: [
+        { name: 'lint-and-validate', status: 'success', duration: '00:41' },
+        { name: 'build-manifests', status: 'success', duration: '01:08' },
+        { name: 'deploy-cluster', status: 'running', duration: '02:23' },
+      ],
+      logLines: [
+        '[08:41:05] 🚀 Triggered by push to main',
+        `[08:41:06] 📦 Workflow: cluster-delivery.yaml (${shortCluster})`,
+        '[08:41:22] ✅ lint-and-validate completed in 41s',
+        '[08:42:30] ✅ build-manifests completed in 1m 08s',
+        '[08:42:33] ▶️  deploy-cluster started',
+        `[08:43:14] 🔄 Applying manifests for ${shortCluster}`,
+        '[08:43:41] 🔄 Waiting for rollout status...',
+        `[08:44:02] ℹ️  ${recentEvent}`,
+      ],
+    },
+    {
+      id: `${shortCluster}-run-2`,
+      workflow: 'cluster-delivery.yaml',
+      branch: 'release/1.31',
+      status: 'success',
+      commit: '6c4b12e',
+      actor: 'asmith',
+      startedAt: '2 hours ago',
+      duration: '07:34',
+      jobs: [
+        { name: 'lint-and-validate', status: 'success', duration: '00:44' },
+        { name: 'build-manifests', status: 'success', duration: '01:11' },
+        { name: 'deploy-cluster', status: 'success', duration: '05:39' },
+      ],
+      logLines: [
+        '[06:20:12] 🚀 Triggered by PR merge',
+        '[06:20:15] ✅ All schema validations passed',
+        '[06:21:26] ✅ Helm template render passed',
+        '[06:23:08] ✅ Rollout completed successfully',
+        '[06:27:46] ✅ Post-deploy smoke checks passed',
+      ],
+    },
+    {
+      id: `${shortCluster}-run-3`,
+      workflow: 'cluster-delivery.yaml',
+      branch: 'feature/network-policy-tightening',
+      status: 'failed',
+      commit: 'a1f9d2c',
+      actor: 'mchen',
+      startedAt: '1 day ago',
+      duration: '03:29',
+      jobs: [
+        { name: 'lint-and-validate', status: 'success', duration: '00:40' },
+        { name: 'build-manifests', status: 'failed', duration: '00:57' },
+        { name: 'deploy-cluster', status: 'failed', duration: '01:52' },
+      ],
+      logLines: [
+        '[14:08:50] 🚀 Triggered by pull_request',
+        '[14:09:30] ✅ lint-and-validate completed',
+        '[14:10:27] ❌ build-manifests failed: values schema mismatch',
+        '[14:10:33] ❌ deploy-cluster skipped due to dependency failure',
+        '[14:10:35] 🧭 Recommendation: run `yarn test:templates` before re-run',
+      ],
+    },
+  ];
+};
 
 const clusterDetailsData: Record<string, ClusterDetail> = {
   'prod-trading-aks': {
@@ -1790,6 +1929,191 @@ const GitOpsTab = ({ data }: { data: ClusterDetail }) => {
   );
 };
 
+// ---- CI/CD Tab ----
+const CiCdTab = ({ clusterName, data }: { clusterName: string; data: ClusterDetail }) => {
+  const classes = useStyles();
+  const runs = buildCicdRuns(clusterName, data);
+  const [selectedRunId, setSelectedRunId] = useState(runs[0]?.id || '');
+  const selectedRun = runs.find(run => run.id === selectedRunId) || runs[0];
+  const actionsBaseUrl = 'https://github.com/jaredthivener/backstage-kubernetes-platform/actions';
+  const selectedRunUrl = `${actionsBaseUrl}?query=branch:${encodeURIComponent(selectedRun.branch)}`;
+
+  const statusChip = (status: PipelineStatus) => {
+    if (status === 'success') {
+      return <Chip size="small" label="Success" style={{ backgroundColor: '#4CAF50', color: '#fff', fontWeight: 700, fontSize: '0.68rem' }} />;
+    }
+    if (status === 'failed') {
+      return <Chip size="small" label="Failed" style={{ backgroundColor: '#F44336', color: '#fff', fontWeight: 700, fontSize: '0.68rem' }} />;
+    }
+    return <Chip size="small" label="Running" style={{ backgroundColor: '#FF9800', color: '#fff', fontWeight: 700, fontSize: '0.68rem' }} />;
+  };
+
+  const counts = {
+    running: runs.filter(run => run.status === 'running').length,
+    success: runs.filter(run => run.status === 'success').length,
+    failed: runs.filter(run => run.status === 'failed').length,
+  };
+
+  return (
+    <Grid container spacing={3}>
+      <Grid item xs={12} sm={4}>
+        <Card className={classes.cicdSummaryCard} style={{ borderTopColor: '#FF9800' }}>
+          <CardContent style={{ textAlign: 'center' }}>
+            <Typography className={classes.metricLabel}>Running</Typography>
+            <Typography className={classes.metricValue} style={{ color: '#FF9800' }}>{counts.running}</Typography>
+            <Typography variant="caption" color="textSecondary">active workflow session</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid item xs={12} sm={4}>
+        <Card className={classes.cicdSummaryCard} style={{ borderTopColor: '#4CAF50' }}>
+          <CardContent style={{ textAlign: 'center' }}>
+            <Typography className={classes.metricLabel}>Succeeded</Typography>
+            <Typography className={classes.metricValue} style={{ color: '#4CAF50' }}>{counts.success}</Typography>
+            <Typography variant="caption" color="textSecondary">recent green runs</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid item xs={12} sm={4}>
+        <Card className={classes.cicdSummaryCard} style={{ borderTopColor: '#F44336' }}>
+          <CardContent style={{ textAlign: 'center' }}>
+            <Typography className={classes.metricLabel}>Failed</Typography>
+            <Typography className={classes.metricValue} style={{ color: '#F44336' }}>{counts.failed}</Typography>
+            <Typography variant="caption" color="textSecondary">requires intervention</Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      <Grid item xs={12} md={4}>
+        <Card style={{ height: '100%' }}>
+          <CardContent>
+            <Typography variant="h6" className={classes.sectionTitle} style={{ marginTop: 0 }}>
+              GitHub Actions Sessions
+            </Typography>
+            {runs.map(run => (
+              <Box
+                key={run.id}
+                className={`${classes.cicdRunRow} ${run.id === selectedRun.id ? classes.cicdRunRowActive : ''}`}
+                onClick={() => setSelectedRunId(run.id)}
+                role="button"
+              >
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                  <Typography variant="body2" style={{ fontWeight: 700 }}>{run.workflow}</Typography>
+                  {statusChip(run.status)}
+                </Box>
+                <Typography variant="caption" color="textSecondary" style={{ display: 'block' }}>
+                  {run.branch} · {run.commit} · {run.actor}
+                </Typography>
+                <Typography variant="caption" color="textSecondary" style={{ display: 'block', marginTop: 2 }}>
+                  Started {run.startedAt} · Duration {run.duration}
+                </Typography>
+              </Box>
+            ))}
+          </CardContent>
+        </Card>
+      </Grid>
+
+      <Grid item xs={12} md={8}>
+        <Card style={{ height: '100%' }}>
+          <CardContent>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6" className={classes.sectionTitle} style={{ marginTop: 0, marginBottom: 0 }}>
+                {selectedRun.workflow} Console
+              </Typography>
+              {statusChip(selectedRun.status)}
+            </Box>
+
+            <Box display="flex" justifyContent="flex-end" gridGap={8} mb={2}>
+              <Button
+                size="small"
+                variant="outlined"
+                color="primary"
+                startIcon={<ReplayIcon fontSize="small" />}
+                href={selectedRunUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Re-run workflow
+              </Button>
+              <Button
+                size="small"
+                color="primary"
+                endIcon={<OpenInNewIcon fontSize="small" />}
+                href={selectedRunUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open in GitHub Actions
+              </Button>
+            </Box>
+
+            <Grid container spacing={2} style={{ marginBottom: 8 }}>
+              <Grid item xs={12} sm={3}>
+                <Typography className={classes.cicdMetaLabel}>Branch</Typography>
+                <Typography className={classes.cicdMetaValue}>{selectedRun.branch}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Typography className={classes.cicdMetaLabel}>Commit</Typography>
+                <Typography className={classes.cicdMetaValue} style={{ fontFamily: 'monospace' }}>{selectedRun.commit}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Typography className={classes.cicdMetaLabel}>Actor</Typography>
+                <Typography className={classes.cicdMetaValue}>{selectedRun.actor}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Typography className={classes.cicdMetaLabel}>Duration</Typography>
+                <Typography className={classes.cicdMetaValue}>{selectedRun.duration}</Typography>
+              </Grid>
+            </Grid>
+
+            <Box mb={2}>
+              <Typography variant="subtitle2" color="textSecondary" style={{ marginBottom: 8 }}>
+                Job Status
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell style={{ fontWeight: 700 }}>Job</TableCell>
+                      <TableCell style={{ fontWeight: 700 }}>Status</TableCell>
+                      <TableCell style={{ fontWeight: 700 }}>Duration</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedRun.jobs.map(job => (
+                      <TableRow key={job.name}>
+                        <TableCell>{job.name}</TableCell>
+                        <TableCell>{statusChip(job.status)}</TableCell>
+                        <TableCell>{job.duration}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+
+            <Box className={classes.cicdConsoleCard}>
+              <Box className={classes.terminalHeader}>
+                <Typography variant="body2" style={{ fontWeight: 700 }}>
+                  Live Console Output
+                </Typography>
+                <Chip size="small" label={selectedRun.id} variant="outlined" style={{ fontFamily: 'monospace', fontSize: '0.65rem', height: 20 }} />
+              </Box>
+              <Box className={classes.cicdConsoleWindow}>
+                {selectedRun.logLines.map((line, index) => (
+                  <Typography key={`${selectedRun.id}-${index}`} className={classes.terminalLine}>
+                    {line}
+                  </Typography>
+                ))}
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  );
+};
+
 // ---- Alerts Tab ----
 const AlertsTab = ({ data }: { data: ClusterDetail }) => {
   const classes = useStyles();
@@ -2367,6 +2691,8 @@ export const ClusterDetailPage = () => {
   const csp = entity?.metadata?.annotations?.['morgan-stanley.com/csp'] || 'unknown';
   const env = entity?.metadata?.annotations?.['morgan-stanley.com/environment'] || '';
   const gitopsEventCount = data.events.filter(event => event.source === 'ArgoCD' || event.source === 'GitOps').length;
+  const cicdRuns = buildCicdRuns(name || '', data);
+  const activeCicdRuns = cicdRuns.filter(run => run.status === 'running').length;
 
   if (loading) {
     return (
@@ -2452,6 +2778,28 @@ export const ClusterDetailPage = () => {
               </Box>
             }
           />
+          <Tab
+            className={classes.tabItem}
+            label={
+              <Box display="flex" alignItems="center" gridGap={4}>
+                <AssessmentIcon style={{ fontSize: 18 }} /> CI/CD
+                {activeCicdRuns > 0 && (
+                  <Chip
+                    size="small"
+                    label={activeCicdRuns}
+                    style={{
+                      height: 18,
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      backgroundColor: '#FF9800',
+                      color: '#fff',
+                      marginLeft: 2,
+                    }}
+                  />
+                )}
+              </Box>
+            }
+          />
           <Tab className={classes.tabItem} label={<Box display="flex" alignItems="center" gridGap={4}><DnsIcon style={{ fontSize: 18 }} /> Live Session</Box>} />
           <Tab className={classes.tabItem} label={<Box display="flex" alignItems="center" gridGap={4}><NotificationsIcon style={{ fontSize: 18 }} /> Alerts {data.alerts.length > 0 && <Chip size="small" label={data.alerts.length} style={{ height: 18, fontSize: '0.65rem', fontWeight: 700, backgroundColor: data.alerts.some(a => a.severity === 'critical') ? '#F44336' : '#FF9800', color: '#fff', marginLeft: 2 }} />}</Box>} />
         </Tabs>
@@ -2462,8 +2810,9 @@ export const ClusterDetailPage = () => {
         {tab === 3 && <CostTab data={data} />}
         {tab === 4 && <InsightsTab data={data} />}
         {tab === 5 && <GitOpsTab data={data} />}
-        {tab === 6 && <LiveSessionTab entity={entity} clusterName={name || 'cluster'} data={data} />}
-        {tab === 7 && <AlertsTab data={data} />}
+        {tab === 6 && <CiCdTab clusterName={name || 'cluster'} data={data} />}
+        {tab === 7 && <LiveSessionTab entity={entity} clusterName={name || 'cluster'} data={data} />}
+        {tab === 8 && <AlertsTab data={data} />}
       </Content>
     </Page>
   );
