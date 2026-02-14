@@ -3,13 +3,13 @@ import { makeStyles } from '@material-ui/core';
 import DashboardIcon from '@material-ui/icons/Dashboard';
 import BuildIcon from '@material-ui/icons/Build';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
-import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
 import CloudIcon from '@material-ui/icons/Cloud';
 import SecurityIcon from '@material-ui/icons/Security';
-import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet';
+import StorageIcon from '@material-ui/icons/Storage';
 import AssessmentIcon from '@material-ui/icons/Assessment';
 import AttachMoneyIcon from '@material-ui/icons/AttachMoney';
 import HeadsetMicIcon from '@material-ui/icons/HeadsetMic';
+import ChatIcon from '@material-ui/icons/Chat';
 import SpeedIcon from '@material-ui/icons/Speed';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
@@ -84,7 +84,7 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
         />
         <SidebarDivider />
         {/* Kubernetes as a Service */}
-        <SidebarItem icon={SettingsEthernetIcon} to="clusters" text="Clusters" />
+        <SidebarItem icon={StorageIcon} to="clusters" text="Clusters" />
         <SidebarItem icon={CloudIcon} text="Platforms">
           <SidebarSubmenu title="Cloud Providers">
             <SidebarSubmenuItem
@@ -113,7 +113,8 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
         <SidebarItem icon={BuildIcon} to="tools" text="Tools" />
         <SidebarItem icon={LibraryBooks} to="docs" text="Docs" />
         <SidebarItem icon={HeadsetMicIcon} to="support" text="Support" />
-        <SidebarItem icon={CreateComponentIcon} to="create" text="Create..." />
+        <SidebarItem icon={ChatIcon} to="aichatbot" text="AI Chat Bot" />
+        {/* <SidebarItem icon={CreateComponentIcon} to="create" text="Create..." /> */}
         <SidebarDivider />
         <SidebarScrollWrapper>
           {/* Items in this group will be scrollable if they run out of space */}

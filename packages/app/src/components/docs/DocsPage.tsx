@@ -31,8 +31,6 @@ import StarIcon from '@material-ui/icons/Star';
 import StarBorderIcon from '@material-ui/icons/StarBorder';
 import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
-import IconButton from '@material-ui/core/IconButton';
-import Tooltip from '@material-ui/core/Tooltip';
 import {
   Header,
   Page,

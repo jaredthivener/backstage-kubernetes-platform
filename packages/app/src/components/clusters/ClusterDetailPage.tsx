@@ -21,6 +21,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   LinearProgress,
   Avatar,
   Tooltip,
@@ -174,6 +175,84 @@ const useStyles = makeStyles(theme => ({
     height: '100%',
     border: `1px solid ${theme.palette.divider}`,
     background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+  },
+  terminalCard: {
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  terminalHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing(1.25, 1.5),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+  },
+  terminalWindow: {
+    backgroundColor: '#0B1020',
+    color: '#E2E8F0',
+    minHeight: 360,
+    maxHeight: 420,
+    overflowY: 'auto',
+    padding: theme.spacing(2),
+    fontFamily: 'monospace',
+    fontSize: '0.82rem',
+  },
+  terminalLine: {
+    marginBottom: theme.spacing(0.6),
+    whiteSpace: 'pre-wrap',
+    lineHeight: 1.45,
+  },
+  terminalPrompt: {
+    color: '#7DD3FC',
+    marginRight: 6,
+  },
+  terminalInputRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gridGap: 10,
+    padding: theme.spacing(1.5),
+    borderTop: `1px solid ${theme.palette.divider}`,
+  },
+  recommendationSection: {
+    marginTop: theme.spacing(2),
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 10,
+  },
+  recommendationHeader: {
+    padding: theme.spacing(1.25, 1.5),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+  },
+  alertRecommendationCard: {
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 8,
+    padding: theme.spacing(1.5),
+    backgroundColor: theme.palette.background.paper,
+  },
+  alertMetaRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing(1),
+  },
+  commandRecommendationCard: {
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 8,
+    padding: theme.spacing(1.25),
+    height: '100%',
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%)',
+  },
+  commandText: {
+    fontFamily: 'monospace',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    marginBottom: theme.spacing(0.75),
+  },
+  commandReason: {
+    display: 'block',
+    marginBottom: theme.spacing(1),
   },
 }));
 
@@ -1294,51 +1373,163 @@ const InsightsTab = ({ data }: { data: ClusterDetail }) => {
 
   return (
     <Grid container spacing={3}>
-      {/* AI-Generated Insights */}
+      {/* Page Header */}
       <Grid item xs={12}>
-        <Typography variant="h6" className={classes.sectionTitle}>
-          <Box display="flex" alignItems="center" gridGap={8}>
-            <BugReportIcon color="primary" /> Cluster Insights & Recommendations
-          </Box>
-        </Typography>
+        <Box mb={1}>
+          <Typography variant="h5" style={{ fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <BugReportIcon style={{ fontSize: 28 }} color="primary" />
+            Cluster Insights & Recommendations
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            AI-powered recommendations and cluster health analysis
+          </Typography>
+        </Box>
       </Grid>
 
+      {/* Insights Cards */}
       {data.insights.map((insight, i) => (
-        <Grid item xs={12} md={6} key={i}>
-          <Card className={classes.insightCard} style={{ borderLeftColor: priorityColor(insight.priority) }}>
+        <Grid item xs={12} md={4} key={i}>
+          <Card className={classes.insightCard} style={{ borderLeftColor: priorityColor(insight.priority), height: '100%' }}>
             <CardContent>
-              <Box display="flex" alignItems="center" gridGap={8} mb={1}>
-                <Avatar style={{ width: 32, height: 32, backgroundColor: `${priorityColor(insight.priority)}22`, color: priorityColor(insight.priority) }}>
+              <Box display="flex" alignItems="flex-start" gridGap={12} mb={1.5}>
+                <Avatar style={{ 
+                  width: 40, 
+                  height: 40, 
+                  backgroundColor: `${priorityColor(insight.priority)}22`, 
+                  color: priorityColor(insight.priority) 
+                }}>
                   {typeIcon(insight.type)}
                 </Avatar>
                 <Box flex={1}>
-                  <Typography variant="subtitle2" style={{ fontWeight: 600 }}>{insight.title}</Typography>
-                  <Chip size="small" label={insight.priority.toUpperCase()}
-                    style={{ fontSize: '0.65rem', fontWeight: 700, backgroundColor: `${priorityColor(insight.priority)}22`,
-                             color: priorityColor(insight.priority), height: 20, marginLeft: 8 }}
-                  />
+                  <Box display="flex" alignItems="center" gridGap={8} mb={0.5}>
+                    <Chip 
+                      size="small" 
+                      label={insight.priority.toUpperCase()}
+                      style={{ 
+                        fontSize: '0.65rem', 
+                        fontWeight: 700, 
+                        backgroundColor: `${priorityColor(insight.priority)}22`,
+                        color: priorityColor(insight.priority), 
+                        height: 20,
+                        borderRadius: 4
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="subtitle1" style={{ fontWeight: 600, lineHeight: 1.3 }}>
+                    {insight.title}
+                  </Typography>
                 </Box>
               </Box>
-              <Typography variant="body2" color="textSecondary">{insight.description}</Typography>
+              <Typography variant="body2" color="textSecondary" style={{ lineHeight: 1.6 }}>
+                {insight.description}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
       ))}
 
-      {/* Cluster Events Timeline */}
+      {/* Monitoring & Activity Section */}
+      <Grid item xs={12}>
+        <Box mt={2} mb={1}>
+          <Typography variant="h6" style={{ fontWeight: 600 }}>
+            Monitoring & Activity
+          </Typography>
+        </Box>
+      </Grid>
+
+      {/* Active Alerts */}
       <Grid item xs={12} md={6}>
-        <Card>
+        <Card style={{ height: '100%' }}>
           <CardContent>
-            <Typography variant="h6" className={classes.sectionTitle}>
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
               <Box display="flex" alignItems="center" gridGap={8}>
-                <ScheduleIcon color="action" /> Activity Timeline
+                <NotificationsIcon color="action" />
+                <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+                  Active Alerts
+                </Typography>
               </Box>
-            </Typography>
-            <List dense>
+              {data.alerts.length > 0 && (
+                <Chip 
+                  size="small" 
+                  label={data.alerts.length}
+                  style={{ 
+                    fontWeight: 700,
+                    backgroundColor: '#F4433622',
+                    color: '#F44336'
+                  }}
+                />
+              )}
+            </Box>
+            {data.alerts.length === 0 ? (
+              <Box py={4} textAlign="center">
+                <CheckCircleIcon style={{ color: '#4CAF50', fontSize: 48 }} />
+                <Typography variant="body1" style={{ marginTop: 12, color: '#4CAF50', fontWeight: 500 }}>
+                  All clear — no active alerts
+                </Typography>
+              </Box>
+            ) : (
+              <Box>
+                {data.alerts.map((alert, i) => (
+                  <Box 
+                    key={i} 
+                    className={classes.alertRow}
+                    style={{ 
+                      padding: '12px 0',
+                      borderBottom: i < data.alerts.length - 1 ? `1px solid rgba(255,255,255,0.08)` : 'none'
+                    }}
+                  >
+                    {alert.severity === 'critical' ? <ErrorIcon style={{ color: '#F44336', fontSize: 20 }} /> :
+                     alert.severity === 'warning' ? <WarningIcon style={{ color: '#FF9800', fontSize: 20 }} /> :
+                     <InfoIcon style={{ color: '#2196F3', fontSize: 20 }} />}
+                    <Box flex={1}>
+                      <Typography variant="body2" style={{ fontWeight: 500, marginBottom: 4 }}>
+                        {alert.message}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        {alert.time} — {alert.source}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Activity Timeline */}
+      <Grid item xs={12} md={6}>
+        <Card style={{ height: '100%' }}>
+          <CardContent>
+            <Box display="flex" alignItems="center" gridGap={8} mb={2}>
+              <ScheduleIcon color="action" />
+              <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+                Activity Timeline
+              </Typography>
+            </Box>
+            <List dense style={{ padding: 0 }}>
               {data.events.map((ev, i) => (
-                <ListItem key={i} style={{ borderLeft: `3px solid ${ev.type === 'security' ? '#FF9800' : ev.type === 'deployment' ? '#1976D2' : ev.type === 'scaling' ? '#4CAF50' : '#9E9E9E'}`, marginBottom: 4, paddingLeft: 12 }}>
+                <ListItem 
+                  key={i} 
+                  style={{ 
+                    borderLeft: `3px solid ${
+                      ev.type === 'security' ? '#FF9800' : 
+                      ev.type === 'deployment' ? '#1976D2' : 
+                      ev.type === 'scaling' ? '#4CAF50' : 
+                      '#9E9E9E'
+                    }`, 
+                    marginBottom: i < data.events.length - 1 ? 8 : 0, 
+                    paddingLeft: 12,
+                    paddingTop: 8,
+                    paddingBottom: 8
+                  }}
+                >
                   <ListItemText
-                    primary={<Typography variant="body2" style={{ fontWeight: 500 }}>{ev.message}</Typography>}
+                    primary={
+                      <Typography variant="body2" style={{ fontWeight: 500, marginBottom: 2 }}>
+                        {ev.message}
+                      </Typography>
+                    }
                     secondary={`${ev.time} — ${ev.source}`}
                   />
                 </ListItem>
@@ -1348,66 +1539,64 @@ const InsightsTab = ({ data }: { data: ClusterDetail }) => {
         </Card>
       </Grid>
 
-      {/* Active Alerts */}
-      <Grid item xs={12} md={6}>
-        <Card>
-          <CardContent>
-            <Typography variant="h6" className={classes.sectionTitle}>
-              <Box display="flex" alignItems="center" gridGap={8}>
-                <NotificationsIcon color="action" /> Active Alerts ({data.alerts.length})
-              </Box>
-            </Typography>
-            {data.alerts.length === 0 ? (
-              <Box py={3} textAlign="center">
-                <CheckCircleIcon style={{ color: '#4CAF50', fontSize: 48 }} />
-                <Typography variant="body1" style={{ marginTop: 8, color: '#4CAF50' }}>All clear — no active alerts</Typography>
-              </Box>
-            ) : (
-              data.alerts.map((alert, i) => (
-                <Box key={i} className={classes.alertRow}>
-                  {alert.severity === 'critical' ? <ErrorIcon style={{ color: '#F44336' }} /> :
-                   alert.severity === 'warning' ? <WarningIcon style={{ color: '#FF9800' }} /> :
-                   <InfoIcon style={{ color: '#2196F3' }} />}
-                  <Box flex={1}>
-                    <Typography variant="body2" style={{ fontWeight: 500 }}>{alert.message}</Typography>
-                    <Typography variant="caption" color="textSecondary">{alert.time} — {alert.source}</Typography>
-                  </Box>
-                </Box>
-              ))
-            )}
-          </CardContent>
-        </Card>
+      {/* Capacity Planning Section */}
+      <Grid item xs={12}>
+        <Box mt={2} mb={1}>
+          <Typography variant="h6" style={{ fontWeight: 600 }}>
+            Capacity Planning
+          </Typography>
+        </Box>
       </Grid>
 
-      {/* Capacity Planning */}
       <Grid item xs={12}>
         <Card>
           <CardContent>
-            <Typography variant="h6" className={classes.sectionTitle}>Capacity Planning</Typography>
-            <Grid container spacing={3}>
+            <Grid container spacing={4}>
               <Grid item xs={12} sm={4}>
-                <Box textAlign="center">
-                  <GaugeChart value={data.cpu} label="CPU Headroom" size={100}
-                    color={data.cpu > 80 ? '#F44336' : data.cpu > 60 ? '#FF9800' : '#4CAF50'} />
-                  <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
+                <Box textAlign="center" py={2}>
+                  <GaugeChart 
+                    value={data.cpu} 
+                    label="CPU" 
+                    size={120}
+                    color={data.cpu > 80 ? '#F44336' : data.cpu > 60 ? '#FF9800' : '#4CAF50'} 
+                  />
+                  <Typography variant="body1" style={{ marginTop: 12, fontWeight: 600 }}>
                     {100 - data.cpu}% remaining capacity
                   </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <Box textAlign="center">
-                  <GaugeChart value={data.memory} label="Memory Headroom" size={100}
-                    color={data.memory > 80 ? '#F44336' : data.memory > 60 ? '#FF9800' : '#4CAF50'} />
-                  <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
-                    {100 - data.memory}% remaining capacity
+                  <Typography variant="caption" color="textSecondary">
+                    Current: {data.cpu}% utilized
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={12} sm={4}>
-                <Box textAlign="center">
-                  <GaugeChart value={Math.round((data.pods / data.podCapacity) * 100)} label="Pod Headroom" size={100} />
-                  <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
+                <Box textAlign="center" py={2}>
+                  <GaugeChart 
+                    value={data.memory} 
+                    label="Memory" 
+                    size={120}
+                    color={data.memory > 80 ? '#F44336' : data.memory > 60 ? '#FF9800' : '#4CAF50'} 
+                  />
+                  <Typography variant="body1" style={{ marginTop: 12, fontWeight: 600 }}>
+                    {100 - data.memory}% remaining capacity
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    Current: {data.memory}% utilized
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Box textAlign="center" py={2}>
+                  <GaugeChart 
+                    value={Math.round((data.pods / data.podCapacity) * 100)} 
+                    label="Pods" 
+                    size={120}
+                    color={Math.round((data.pods / data.podCapacity) * 100) > 80 ? '#F44336' : Math.round((data.pods / data.podCapacity) * 100) > 60 ? '#FF9800' : '#4CAF50'}
+                  />
+                  <Typography variant="body1" style={{ marginTop: 12, fontWeight: 600 }}>
                     {data.podCapacity - data.pods} pods remaining
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    Current: {data.pods} / {data.podCapacity} pods
                   </Typography>
                 </Box>
               </Grid>
@@ -1867,6 +2056,281 @@ const AlertsTab = ({ data }: { data: ClusterDetail }) => {
   );
 };
 
+// ---- Live Session Tab ----
+const LiveSessionTab = ({ entity, clusterName, data }: { entity: Entity; clusterName: string; data: ClusterDetail }) => {
+  const classes = useStyles();
+  const [connected, setConnected] = useState(false);
+  const [command, setCommand] = useState('');
+  const [terminalLines, setTerminalLines] = useState<string[]>([
+    'Backstage Live Session',
+    'Connect to start an interactive cluster terminal session.',
+  ]);
+
+  const namespace = entity.metadata.namespace || 'default';
+  const csp = entity?.metadata?.annotations?.['morgan-stanley.com/csp'] || 'unknown';
+
+  const recommendationsByAlert = data.alerts.map((alert, index) => {
+    const message = alert.message.toLowerCase();
+    let commands: { command: string; reason: string }[];
+
+    if (message.includes('cpu')) {
+      commands = [
+        { command: 'kubectl top nodes', reason: 'Check which nodes are currently CPU constrained.' },
+        { command: 'kubectl top pods -A --sort-by=cpu', reason: 'Identify workloads driving CPU spikes.' },
+      ];
+    } else if (message.includes('memory')) {
+      commands = [
+        { command: 'kubectl top pods -A --sort-by=memory', reason: 'Find pods consuming the most memory.' },
+        { command: 'kubectl describe node <node-name>', reason: 'Inspect node memory pressure and eviction status.' },
+      ];
+    } else if (message.includes('latency') || message.includes('api')) {
+      commands = [
+        { command: 'kubectl get pods -A -o wide', reason: 'Validate pod status and node placement for affected services.' },
+        { command: 'kubectl logs -n <namespace> <pod-name> --tail=200', reason: 'Inspect recent error spikes and timeout patterns.' },
+      ];
+    } else if (message.includes('node')) {
+      commands = [
+        { command: 'kubectl get nodes -o wide', reason: 'Review node readiness and scheduling health.' },
+        { command: 'kubectl describe node <node-name>', reason: 'Inspect events, taints, and resource constraints.' },
+      ];
+    } else if (message.includes('pod')) {
+      commands = [
+        { command: 'kubectl get pods -A', reason: 'Check pod health and restart behavior across namespaces.' },
+        { command: 'kubectl describe pod -n <namespace> <pod-name>', reason: 'Inspect events and container failure details.' },
+      ];
+    } else {
+      commands = [
+        { command: 'kubectl get events -A --sort-by=.lastTimestamp', reason: 'Review latest cluster events around this alert window.' },
+        { command: 'kubectl get pods -A', reason: 'Perform a quick workload health baseline check.' },
+      ];
+    }
+
+    return {
+      id: `${alert.source}-${alert.time}-${index}`,
+      alert,
+      commands,
+    };
+  });
+
+  const connectSession = () => {
+    setConnected(true);
+    setTerminalLines(prev => [
+      ...prev,
+      '',
+      `Connected to ${clusterName} (${csp.toUpperCase()})`,
+      `Context: ${namespace}/${clusterName}`,
+      'Type "help" to see available commands.',
+    ]);
+  };
+
+  const disconnectSession = () => {
+    setConnected(false);
+    setTerminalLines(prev => [...prev, '', 'Session disconnected.']);
+  };
+
+  const runCommand = () => {
+    const trimmed = command.trim();
+    if (!trimmed || !connected) return;
+
+    const output: string[] = [`$ ${trimmed}`];
+    if (trimmed === 'help') {
+      output.push(
+        'Available: kubectl get pods -A | kubectl get nodes | kubectl top nodes | kubectl describe node <name> | clear',
+      );
+    } else if (trimmed === 'kubectl get pods -A') {
+      output.push('NAMESPACE       NAME                              READY   STATUS    RESTARTS   AGE');
+      output.push('kube-system     coredns-6f67b8bbf-9sk2p          1/1     Running   0          12d');
+      output.push('monitoring      prometheus-k8s-0                  2/2     Running   0          8d');
+      output.push('argocd          argocd-server-7fcb7645d8-jx2wm    1/1     Running   0          18d');
+    } else if (trimmed === 'kubectl get nodes') {
+      output.push('NAME                     STATUS   ROLES    AGE    VERSION');
+      output.push(`${clusterName}-nodepool-01   Ready    worker   18d    v1.29.4`);
+      output.push(`${clusterName}-nodepool-02   Ready    worker   18d    v1.29.4`);
+      output.push(`${clusterName}-system-01     Ready    system   18d    v1.29.4`);
+    } else if (trimmed === 'kubectl top nodes') {
+      output.push('NAME                     CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%');
+      output.push(`${clusterName}-nodepool-01   760m         38%    5240Mi          62%`);
+      output.push(`${clusterName}-nodepool-02   840m         42%    4980Mi          58%`);
+      output.push(`${clusterName}-system-01     310m         16%    2420Mi          40%`);
+    } else if (trimmed.startsWith('kubectl describe node')) {
+      output.push('Name:               worker-node');
+      output.push('Roles:              worker');
+      output.push('Conditions:         Ready=True, MemoryPressure=False, DiskPressure=False');
+      output.push('Allocated resources: cpu 68%, memory 71%');
+    } else if (trimmed === 'clear') {
+      setTerminalLines(['Terminal cleared.', 'Type "help" to see available commands.']);
+      setCommand('');
+      return;
+    } else {
+      output.push('Command executed in simulated mode.');
+      output.push('Wire this tab to your secure backend session broker for real cluster shell access.');
+    }
+
+    setTerminalLines(prev => [...prev, ...output]);
+    setCommand('');
+  };
+
+  return (
+    <Grid container spacing={3}>
+      <Grid item xs={12}>
+        <Card>
+          <CardContent>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6" className={classes.sectionTitle} style={{ marginTop: 0 }}>
+                <Box display="flex" alignItems="center" gridGap={8}>
+                  <DnsIcon color="action" /> Live Session Terminal
+                </Box>
+              </Typography>
+              <Box display="flex" alignItems="center" gridGap={8}>
+                <Chip
+                  size="small"
+                  label={connected ? 'Connected' : 'Disconnected'}
+                  style={{
+                    fontWeight: 700,
+                    backgroundColor: connected ? '#2E7D32' : '#9E9E9E',
+                    color: '#fff',
+                  }}
+                />
+                {!connected ? (
+                  <Button variant="contained" color="primary" onClick={connectSession}>
+                    Connect
+                  </Button>
+                ) : (
+                  <Button variant="outlined" color="secondary" onClick={disconnectSession}>
+                    Disconnect
+                  </Button>
+                )}
+              </Box>
+            </Box>
+
+            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 14 }}>
+              Open an in-platform shell session against this cluster context for fast diagnostics and operational checks.
+            </Typography>
+
+            <Box className={classes.terminalCard}>
+              <Box className={classes.terminalHeader}>
+                <Typography variant="body2" style={{ fontWeight: 600 }}>
+                  {namespace}/{clusterName}
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  kubectl session
+                </Typography>
+              </Box>
+
+              <Box className={classes.terminalWindow}>
+                {terminalLines.map((line, index) => (
+                  <div key={`${line}-${index}`} className={classes.terminalLine}>
+                    {line}
+                  </div>
+                ))}
+              </Box>
+
+              <Box className={classes.terminalInputRow}>
+                <Typography variant="body2" className={classes.terminalPrompt}>$</Typography>
+                <TextField
+                  value={command}
+                  onChange={event => setCommand(event.target.value)}
+                  placeholder={connected ? 'Run kubectl command...' : 'Connect to enable command input'}
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  disabled={!connected}
+                  onKeyPress={event => {
+                    if (event.key === 'Enter') {
+                      runCommand();
+                    }
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={!connected || !command.trim()}
+                  onClick={runCommand}
+                >
+                  Run
+                </Button>
+              </Box>
+            </Box>
+
+            <Card className={classes.recommendationSection} variant="outlined">
+              <Box className={classes.recommendationHeader}>
+                <Typography variant="subtitle1" style={{ fontWeight: 600 }}>
+                  Alert-driven kubectl recommendations
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  Each alert includes investigation context and two suggested commands.
+                </Typography>
+              </Box>
+              <CardContent>
+                {recommendationsByAlert.length === 0 ? (
+                  <Typography variant="body2" color="textSecondary">
+                    No active alerts. Connect and run baseline checks like `kubectl get pods -A`.
+                  </Typography>
+                ) : (
+                  <Grid container spacing={2}>
+                    {recommendationsByAlert.map(item => (
+                      <Grid item xs={12} key={item.id}>
+                        <Box className={classes.alertRecommendationCard}>
+                          <Box className={classes.alertMetaRow}>
+                            <Typography variant="body2" style={{ fontWeight: 600 }}>
+                              {item.alert.message}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={item.alert.severity.toUpperCase()}
+                              style={{
+                                fontWeight: 700,
+                                backgroundColor:
+                                  item.alert.severity === 'critical'
+                                    ? '#F44336'
+                                    : item.alert.severity === 'warning'
+                                      ? '#FF9800'
+                                      : '#2196F3',
+                                color: '#fff',
+                              }}
+                            />
+                          </Box>
+
+                          <Typography variant="caption" color="textSecondary" style={{ display: 'block', marginBottom: 12 }}>
+                            {item.alert.time} — {item.alert.source}
+                          </Typography>
+
+                          <Grid container spacing={1}>
+                            {item.commands.map(recommendation => (
+                              <Grid item xs={12} md={6} key={`${item.id}-${recommendation.command}`}>
+                                <Box className={classes.commandRecommendationCard}>
+                                  <Typography variant="body2" className={classes.commandText}>
+                                    {recommendation.command}
+                                  </Typography>
+                                  <Typography variant="caption" color="textSecondary" className={classes.commandReason}>
+                                    {recommendation.reason}
+                                  </Typography>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="primary"
+                                    onClick={() => setCommand(recommendation.command)}
+                                  >
+                                    Use Command
+                                  </Button>
+                                </Box>
+                              </Grid>
+                            ))}
+                          </Grid>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                )}
+              </CardContent>
+            </Card>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  );
+};
+
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
@@ -1988,6 +2452,7 @@ export const ClusterDetailPage = () => {
               </Box>
             }
           />
+          <Tab className={classes.tabItem} label={<Box display="flex" alignItems="center" gridGap={4}><DnsIcon style={{ fontSize: 18 }} /> Live Session</Box>} />
           <Tab className={classes.tabItem} label={<Box display="flex" alignItems="center" gridGap={4}><NotificationsIcon style={{ fontSize: 18 }} /> Alerts {data.alerts.length > 0 && <Chip size="small" label={data.alerts.length} style={{ height: 18, fontSize: '0.65rem', fontWeight: 700, backgroundColor: data.alerts.some(a => a.severity === 'critical') ? '#F44336' : '#FF9800', color: '#fff', marginLeft: 2 }} />}</Box>} />
         </Tabs>
 
@@ -1997,7 +2462,8 @@ export const ClusterDetailPage = () => {
         {tab === 3 && <CostTab data={data} />}
         {tab === 4 && <InsightsTab data={data} />}
         {tab === 5 && <GitOpsTab data={data} />}
-        {tab === 6 && <AlertsTab data={data} />}
+        {tab === 6 && <LiveSessionTab entity={entity} clusterName={name || 'cluster'} data={data} />}
+        {tab === 7 && <AlertsTab data={data} />}
       </Content>
     </Page>
   );
