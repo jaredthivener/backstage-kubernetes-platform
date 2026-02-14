@@ -6,8 +6,14 @@ import React from 'react';
 // ---------------------------------------------------------------------------
 const ossLogos = [
   { src: '/logos/istio.svg', name: 'Istio' },
-  { src: '/logos/argo.svg', name: 'ArgoCD' },
-  { src: '/logos/cilium.svg', name: 'Cilium' },
+  { src: '/logos/cilium.svg', name: 'Cilium', scale: 1.33 },
+  {
+    src: '/logos/argo-simple.svg',
+    name: 'ArgoCD',
+    scale: 1.5,
+    yOffset: -14,
+    filter: 'brightness(2.1) saturate(0) contrast(0.9)',
+  },
   { src: '/logos/prometheus.svg', name: 'Prometheus' },
   { src: '/logos/grafana.svg', name: 'Grafana' },
   { src: '/logos/opa.svg', name: 'Open Policy Agent' },
@@ -202,6 +208,7 @@ export const HeaderBannerLogos = ({
       >
         {ossLogos.map((logo, i) => {
           const cfg = placements[i];
+          const logoSize = cfg.size * (logo.scale ?? 1);
           return (
             <img
               key={logo.name}
@@ -210,12 +217,13 @@ export const HeaderBannerLogos = ({
               style={{
                 position: 'absolute',
                 left: cfg.left,
-                top: cfg.top,
-                height: cfg.size,
-                width: cfg.size,
+                top: cfg.top + (logo.yOffset ?? 0),
+                height: logoSize,
+                width: logoSize,
                 opacity: cfg.opacity,
                 transform: `rotate(${cfg.rotate}deg)`,
-                filter: 'brightness(2.5) saturate(0.4)',
+                objectFit: 'contain',
+                filter: logo.filter ?? 'brightness(2.5) saturate(0.4)',
               }}
             />
           );
