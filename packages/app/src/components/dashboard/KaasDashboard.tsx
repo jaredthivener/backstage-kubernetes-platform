@@ -40,6 +40,12 @@ import AttachMoneyIcon from '@material-ui/icons/AttachMoney';
 import NotificationsActiveIcon from '@material-ui/icons/NotificationsActive';
 import PhoneInTalkIcon from '@material-ui/icons/PhoneInTalk';
 import TimelineIcon from '@material-ui/icons/Timeline';
+import TipsAndUpdatesIcon from '@material-ui/icons/EmojiObjects';
+import AnnouncementIcon from '@material-ui/icons/Announcement';
+import SchoolIcon from '@material-ui/icons/School';
+import EventIcon from '@material-ui/icons/Event';
+import NewReleasesIcon from '@material-ui/icons/NewReleases';
+import SpeedIcon from '@material-ui/icons/Speed';
 import {
   Header,
   Page,
@@ -278,6 +284,105 @@ const useStyles = makeStyles(theme => ({
       transform: 'translateY(-2px)',
       boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
     },
+  },
+  newsTicker: {
+    background: 'linear-gradient(90deg, rgba(25,118,210,0.08) 0%, rgba(156,39,176,0.08) 100%)',
+    borderRadius: 10,
+    padding: theme.spacing(1.5, 0),
+    marginBottom: theme.spacing(3),
+    overflow: 'hidden',
+    position: 'relative',
+    border: `1px solid ${theme.palette.divider}`,
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 80,
+      background: theme.palette.type === 'dark' 
+        ? 'linear-gradient(90deg, rgba(18,18,18,1) 0%, rgba(18,18,18,0) 100%)'
+        : 'linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
+      zIndex: 2,
+      pointerEvents: 'none',
+    },
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: 80,
+      background: theme.palette.type === 'dark'
+        ? 'linear-gradient(90deg, rgba(18,18,18,0) 0%, rgba(18,18,18,1) 100%)'
+        : 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%)',
+      zIndex: 2,
+      pointerEvents: 'none',
+    },
+  },
+  tickerLabel: {
+    position: 'absolute',
+    left: 16,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    zIndex: 3,
+    backgroundColor: theme.palette.type === 'dark' ? '#121212' : '#ffffff',
+    padding: '4px 12px',
+    borderRadius: 16,
+    border: `1px solid ${theme.palette.divider}`,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tickerLabelText: {
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: theme.palette.primary.main,
+  },
+  tickerScroll: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 48,
+    paddingLeft: 120,
+    animation: '$tickerScroll 90s linear infinite',
+    '&:hover': {
+      animationPlayState: 'paused',
+    },
+  },
+  '@keyframes tickerScroll': {
+    '0%': {
+      transform: 'translateX(0)',
+    },
+    '100%': {
+      transform: 'translateX(-50%)',
+    },
+  },
+  tickerItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  tickerIcon: {
+    fontSize: 18,
+    flexShrink: 0,
+    opacity: 0.9,
+  },
+  tickerText: {
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    letterSpacing: 0.2,
+  },
+  tickerDivider: {
+    width: 4,
+    height: 4,
+    borderRadius: '50%',
+    backgroundColor: theme.palette.text.disabled,
+    opacity: 0.4,
+    flexShrink: 0,
   },
 }));
 
@@ -1135,6 +1240,129 @@ const MiniHistogram = ({ data, color }: { data: CspHistogramDay[]; color: string
   );
 };
 
+// ---------------------------------------------------------------------------
+// News Ticker Component
+// ---------------------------------------------------------------------------
+const NewsTicker = () => {
+  const classes = useStyles();
+
+  const newsItems = [
+    {
+      id: 1,
+      type: 'tip',
+      icon: <TipsAndUpdatesIcon />,
+      text: '💡 Pro Tip: Use resource quotas to prevent namespaces from consuming excessive cluster resources',
+      color: '#FF9800',
+    },
+    {
+      id: 2,
+      type: 'update',
+      icon: <UpdateIcon />,
+      text: '🚀 New: ArgoCD v2.10 now available with enhanced security features and improved GitOps workflows',
+      color: '#2196F3',
+    },
+    {
+      id: 3,
+      type: 'news',
+      icon: <AnnouncementIcon />,
+      text: '📢 Platform News: Auto-scaling policies updated for GPU workloads - 35% efficiency improvement',
+      color: '#9C27B0',
+    },
+    {
+      id: 4,
+      type: 'tip',
+      icon: <TipsAndUpdatesIcon />,
+      text: '💡 Best Practice: Enable pod security policies to enforce security standards across all namespaces',
+      color: '#FF9800',
+    },
+    {
+      id: 5,
+      type: 'security',
+      icon: <SecurityIcon />,
+      text: '🔒 Security Alert: CVE-2024-21626 patches available - Update your container runtime to v1.7.14+',
+      color: '#F44336',
+    },
+    {
+      id: 6,
+      type: 'performance',
+      icon: <SpeedIcon />,
+      text: '⚡ Performance: Horizontal Pod Autoscaling reduces costs by 20% during off-peak hours',
+      color: '#4CAF50',
+    },
+    {
+      id: 7,
+      type: 'docs',
+      icon: <SchoolIcon />,
+      text: '📚 New Documentation: Kubernetes 1.30 migration guide with step-by-step instructions now available',
+      color: '#00BCD4',
+    },
+    {
+      id: 8,
+      type: 'event',
+      icon: <EventIcon />,
+      text: '📅 Upcoming: Quarterly infrastructure review scheduled for Feb 28 - All teams invited',
+      color: '#FF5722',
+    },
+    {
+      id: 9,
+      type: 'feature',
+      icon: <NewReleasesIcon />,
+      text: '✨ New Feature: AI Chat Bot now provides intelligent troubleshooting for cluster issues',
+      color: '#E91E63',
+    },
+    {
+      id: 10,
+      type: 'tip',
+      icon: <TipsAndUpdatesIcon />,
+      text: '💡 Quick Tip: Use kubectl top nodes to monitor resource usage and identify bottlenecks',
+      color: '#FF9800',
+    },
+    {
+      id: 11,
+      type: 'cost',
+      icon: <TrendingUpIcon />,
+      text: '💰 Cost Optimization: Spot instances can reduce compute costs by up to 70% for non-critical workloads',
+      color: '#4CAF50',
+    },
+    {
+      id: 12,
+      type: 'tip',
+      icon: <TipsAndUpdatesIcon />,
+      text: '💡 Did you know? Liveness probes prevent zombie pods and improve overall cluster health',
+      color: '#FF9800',
+    },
+  ];
+
+  // Duplicate items for seamless infinite scroll
+  const duplicatedItems = [...newsItems, ...newsItems];
+
+  return (
+    <Box className={classes.newsTicker}>
+      <Box className={classes.tickerLabel}>
+        <TimelineIcon style={{ fontSize: 16, color: '#1976D2' }} />
+        <Typography className={classes.tickerLabelText}>
+          Platform News
+        </Typography>
+      </Box>
+      <Box className={classes.tickerScroll}>
+        {duplicatedItems.map((item, idx) => (
+          <Box key={`${item.id}-${idx}`} className={classes.tickerItem}>
+            <Box className={classes.tickerIcon} style={{ color: item.color }}>
+              {item.icon}
+            </Box>
+            <Typography className={classes.tickerText}>
+              {item.text}
+            </Typography>
+            {idx < duplicatedItems.length - 1 && (
+              <Box className={classes.tickerDivider} />
+            )}
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+};
+
 const PlatformStats = () => {
   const catalogApi = useApi(catalogApiRef);
   const [cspStats, setCspStats] = useState<CspStat[]>([]);
@@ -1369,6 +1597,9 @@ export const KaasDashboard = () => {
             </Box>
           </Box>
         </Box>
+
+        {/* News Ticker */}
+        <NewsTicker />
 
         {/* Platform Stats */}
         <Box mb={3}>
