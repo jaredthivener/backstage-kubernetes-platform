@@ -1,8 +1,6 @@
 ---
 # ============================================================================
-# Morgan Stanley KaaS Platform - System Definitions
-# ============================================================================
-# These define the high-level systems that comprise the KaaS Platform.
+# Morgan Stanley KaaS Platform - System & Component Definitions
 # ============================================================================
 
 apiVersion: backstage.io/v1alpha1
@@ -43,21 +41,11 @@ kind: System
 metadata:
   name: kaas-azure
   title: KaaS Azure Platform (AKS)
-  description: >
-    Azure Kubernetes Service clusters managed via Cluster API (CAPZ).
-    Provides AKS clusters across dev, QA, and production environments.
-  tags:
-    - azure
-    - aks
-    - capz
-  links:
-    - url: https://portal.azure.com
-      title: Azure Portal
-      icon: cloud
+  description: Azure Kubernetes Service clusters managed via Cluster API (CAPZ).
+  tags: [azure, aks, capz]
 spec:
   owner: group:platform-engineering
   domain: infrastructure
-  subcomponentOf: system:kaas-platform
 
 ---
 apiVersion: backstage.io/v1alpha1
@@ -65,21 +53,11 @@ kind: System
 metadata:
   name: kaas-aws
   title: KaaS AWS Platform (EKS)
-  description: >
-    Elastic Kubernetes Service clusters managed via Cluster API (CAPA).
-    Provides EKS clusters across dev, QA, and production environments.
-  tags:
-    - aws
-    - eks
-    - capa
-  links:
-    - url: https://console.aws.amazon.com/eks
-      title: AWS Console
-      icon: cloud
+  description: Elastic Kubernetes Service clusters managed via Cluster API (CAPA).
+  tags: [aws, eks, capa]
 spec:
   owner: group:platform-engineering
   domain: infrastructure
-  subcomponentOf: system:kaas-platform
 
 ---
 apiVersion: backstage.io/v1alpha1
@@ -87,21 +65,11 @@ kind: System
 metadata:
   name: kaas-gcp
   title: KaaS GCP Platform (GKE)
-  description: >
-    Google Kubernetes Engine clusters managed via Cluster API (CAPG).
-    Provides GKE clusters across dev, QA, and production environments.
-  tags:
-    - gcp
-    - gke
-    - capg
-  links:
-    - url: https://console.cloud.google.com/kubernetes
-      title: GCP Console
-      icon: cloud
+  description: Google Kubernetes Engine clusters managed via Cluster API (CAPG).
+  tags: [gcp, gke, capg]
 spec:
   owner: group:platform-engineering
   domain: infrastructure
-  subcomponentOf: system:kaas-platform
 
 ---
 apiVersion: backstage.io/v1alpha1
@@ -109,373 +77,23 @@ kind: System
 metadata:
   name: kaas-monitoring
   title: KaaS Monitoring Stack
-  description: >
-    Centralized monitoring for all Kubernetes clusters. Uses Prometheus
-    Operator with remote write federation, Grafana dashboards, and
-    Alertmanager integration.
-  tags:
-    - monitoring
-    - prometheus
-    - grafana
+  description: Centralized monitoring using Prometheus, Grafana, and Alertmanager.
+  tags: [monitoring, prometheus, grafana]
 spec:
   owner: group:platform-engineering
   domain: infrastructure
-  subcomponentOf: system:kaas-platform
 
 ---
 apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
   name: kaas-security
-  title: KaaS Security & Compliance
-  description: >
-    Security infrastructure including HashiCorp Vault integration,
-    PCI-DSS network policies, Entra ID authentication, and zero-trust
-    networking.
-  tags:
-    - security
-    - vault
-    - pci-dss
-    - zero-trust
+  title: KaaS Security and Compliance
+  description: Security infrastructure with Vault, PCI-DSS policies, and Entra ID.
+  tags: [security, vault, pci-dss, zero-trust]
 spec:
   owner: group:platform-engineering
   domain: infrastructure
-  subcomponentOf: system:kaas-platform
-
----
-# ============================================================================
-# Management Cluster Resources
-# ============================================================================
-
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: azure-mgmt-cluster
-  title: Azure Management Cluster
-  description: >
-    CAPI management cluster for Azure (CAPZ). Manages all AKS workload
-    cluster lifecycle operations.
-  annotations:
-    backstage.io/kubernetes-id: ms-azure-mgmt
-    backstage.io/kubernetes-namespace: capi-system
-  tags:
-    - management-cluster
-    - azure
-    - capz
-spec:
-  type: kubernetes-cluster
-  owner: group:platform-engineering
-  system: kaas-azure
-  lifecycle: production
-
----
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: aws-mgmt-cluster
-  title: AWS Management Cluster
-  description: >
-    CAPI management cluster for AWS (CAPA). Manages all EKS workload
-    cluster lifecycle operations.
-  annotations:
-    backstage.io/kubernetes-id: ms-aws-mgmt
-    backstage.io/kubernetes-namespace: capi-system
-  tags:
-    - management-cluster
-    - aws
-    - capa
-spec:
-  type: kubernetes-cluster
-  owner: group:platform-engineering
-  system: kaas-aws
-  lifecycle: production
-
----
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: gcp-mgmt-cluster
-  title: GCP Management Cluster
-  description: >
-    CAPI management cluster for GCP (CAPG). Manages all GKE workload
-    cluster lifecycle operations.
-  annotations:
-    backstage.io/kubernetes-id: ms-gcp-mgmt
-    backstage.io/kubernetes-namespace: capi-system
-  tags:
-    - management-cluster
-    - gcp
-    - capg
-spec:
-  type: kubernetes-cluster
-  owner: group:platform-engineering
-  system: kaas-gcp
-  lifecycle: production
-
----
-# ============================================================================
-# Workload Clusters
-# ============================================================================
-
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: prod-trading-aks
-  title: prod-trading-aks
-  description: >
-    Production AKS cluster hosting the Equities Trading platform.
-    High-availability multi-zone deployment with PCI-DSS compliance.
-  annotations:
-    backstage.io/kubernetes-id: prod-trading-aks
-    backstage.io/kubernetes-namespace: default
-    morgan-stanley.com/csp: azure
-    morgan-stanley.com/environment: production
-    morgan-stanley.com/region: eastus
-    morgan-stanley.com/kubernetes-version: '1.29.2'
-    morgan-stanley.com/cluster-type: workload
-    morgan-stanley.com/cluster-status: running
-    morgan-stanley.com/node-count: '12'
-    morgan-stanley.com/instance-type: Standard_D8s_v5
-    morgan-stanley.com/addons: 'kube-prometheus-stack,vault-agent,network-policies,cert-manager,ingress-nginx,argocd'
-    morgan-stanley.com/vnet-cidr: '10.10.0.0/16'
-    morgan-stanley.com/pod-cidr: '10.244.0.0/16'
-    morgan-stanley.com/service-cidr: '10.96.0.0/12'
-    morgan-stanley.com/dns-zone: trading.ms.internal
-    morgan-stanley.com/network-policy: PCI-DSS
-    morgan-stanley.com/auth-provider: Entra ID
-    morgan-stanley.com/vault-path: secret/kaas/prod-trading-aks
-    morgan-stanley.com/compliance-status: compliant
-    morgan-stanley.com/pci-compliant: 'true'
-    morgan-stanley.com/monthly-cost: '8420'
-    morgan-stanley.com/cost-trend: '+3.2'
-  tags:
-    - workload-cluster
-    - azure
-    - production
-    - trading
-    - pci-dss
-spec:
-  type: kubernetes-cluster
-  owner: group:platform-engineering
-  system: kaas-azure
-  lifecycle: production
-
----
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: prod-analytics-eks
-  title: prod-analytics-eks
-  description: >
-    Production EKS cluster for the Data Analytics and ML inference platform.
-    GPU-enabled node pools for batch workloads.
-  annotations:
-    backstage.io/kubernetes-id: prod-analytics-eks
-    backstage.io/kubernetes-namespace: default
-    morgan-stanley.com/csp: aws
-    morgan-stanley.com/environment: production
-    morgan-stanley.com/region: us-east-1
-    morgan-stanley.com/kubernetes-version: '1.29.4'
-    morgan-stanley.com/cluster-type: workload
-    morgan-stanley.com/cluster-status: running
-    morgan-stanley.com/node-count: '24'
-    morgan-stanley.com/instance-type: m6i.2xlarge
-    morgan-stanley.com/addons: 'kube-prometheus-stack,vault-agent,network-policies,cert-manager,external-dns,argocd,namespace-operator'
-    morgan-stanley.com/vnet-cidr: '10.20.0.0/16'
-    morgan-stanley.com/pod-cidr: '10.245.0.0/16'
-    morgan-stanley.com/service-cidr: '10.100.0.0/16'
-    morgan-stanley.com/dns-zone: analytics.ms.internal
-    morgan-stanley.com/network-policy: PCI-DSS
-    morgan-stanley.com/auth-provider: Entra ID
-    morgan-stanley.com/vault-path: secret/kaas/prod-analytics-eks
-    morgan-stanley.com/compliance-status: compliant
-    morgan-stanley.com/pci-compliant: 'true'
-    morgan-stanley.com/monthly-cost: '14200'
-    morgan-stanley.com/cost-trend: '+5.1'
-  tags:
-    - workload-cluster
-    - aws
-    - production
-    - analytics
-    - gpu
-spec:
-  type: kubernetes-cluster
-  owner: group:platform-engineering
-  system: kaas-aws
-  lifecycle: production
-
----
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: prod-risk-gke
-  title: prod-risk-gke
-  description: >
-    Production GKE cluster for Risk Analytics and Real-Time Pricing engines.
-    Multi-regional with Autopilot scaling.
-  annotations:
-    backstage.io/kubernetes-id: prod-risk-gke
-    backstage.io/kubernetes-namespace: default
-    morgan-stanley.com/csp: gcp
-    morgan-stanley.com/environment: production
-    morgan-stanley.com/region: us-central1
-    morgan-stanley.com/kubernetes-version: '1.29.1'
-    morgan-stanley.com/cluster-type: workload
-    morgan-stanley.com/cluster-status: running
-    morgan-stanley.com/node-count: '8'
-    morgan-stanley.com/instance-type: e2-standard-8
-    morgan-stanley.com/addons: 'kube-prometheus-stack,vault-agent,network-policies,cert-manager,argocd'
-    morgan-stanley.com/vnet-cidr: '10.30.0.0/16'
-    morgan-stanley.com/pod-cidr: '10.246.0.0/16'
-    morgan-stanley.com/service-cidr: '10.104.0.0/16'
-    morgan-stanley.com/dns-zone: risk.ms.internal
-    morgan-stanley.com/network-policy: PCI-DSS
-    morgan-stanley.com/auth-provider: Entra ID
-    morgan-stanley.com/vault-path: secret/kaas/prod-risk-gke
-    morgan-stanley.com/compliance-status: compliant
-    morgan-stanley.com/pci-compliant: 'true'
-    morgan-stanley.com/monthly-cost: '6340'
-    morgan-stanley.com/cost-trend: '-1.8'
-  tags:
-    - workload-cluster
-    - gcp
-    - production
-    - risk
-spec:
-  type: kubernetes-cluster
-  owner: group:platform-engineering
-  system: kaas-gcp
-  lifecycle: production
-
----
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: staging-risk-eks
-  title: staging-risk-eks
-  description: >
-    Staging EKS cluster for Risk team integration testing and QA.
-    Mirrors production configuration at reduced scale.
-  annotations:
-    backstage.io/kubernetes-id: staging-risk-eks
-    backstage.io/kubernetes-namespace: default
-    morgan-stanley.com/csp: aws
-    morgan-stanley.com/environment: staging
-    morgan-stanley.com/region: us-west-2
-    morgan-stanley.com/kubernetes-version: '1.30.0'
-    morgan-stanley.com/cluster-type: workload
-    morgan-stanley.com/cluster-status: running
-    morgan-stanley.com/node-count: '6'
-    morgan-stanley.com/instance-type: m6i.xlarge
-    morgan-stanley.com/addons: 'kube-prometheus-stack,vault-agent,cert-manager,argocd'
-    morgan-stanley.com/vnet-cidr: '10.40.0.0/16'
-    morgan-stanley.com/pod-cidr: '10.247.0.0/16'
-    morgan-stanley.com/service-cidr: '10.108.0.0/16'
-    morgan-stanley.com/dns-zone: staging-risk.ms.internal
-    morgan-stanley.com/network-policy: standard
-    morgan-stanley.com/auth-provider: Entra ID
-    morgan-stanley.com/vault-path: secret/kaas/staging-risk-eks
-    morgan-stanley.com/compliance-status: compliant
-    morgan-stanley.com/pci-compliant: 'false'
-    morgan-stanley.com/monthly-cost: '3180'
-    morgan-stanley.com/cost-trend: '+0.5'
-  tags:
-    - workload-cluster
-    - aws
-    - staging
-    - risk
-spec:
-  type: kubernetes-cluster
-  owner: group:platform-engineering
-  system: kaas-aws
-  lifecycle: staging
-
----
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: dev-sandbox-aks
-  title: dev-sandbox-aks
-  description: >
-    Development AKS sandbox cluster for team experimentation and prototyping.
-    Relaxed security policies with spot instances for cost savings.
-  annotations:
-    backstage.io/kubernetes-id: dev-sandbox-aks
-    backstage.io/kubernetes-namespace: default
-    morgan-stanley.com/csp: azure
-    morgan-stanley.com/environment: development
-    morgan-stanley.com/region: westus2
-    morgan-stanley.com/kubernetes-version: '1.30.1'
-    morgan-stanley.com/cluster-type: workload
-    morgan-stanley.com/cluster-status: running
-    morgan-stanley.com/node-count: '4'
-    morgan-stanley.com/instance-type: Standard_D4s_v5
-    morgan-stanley.com/addons: 'kube-prometheus-stack,cert-manager,argocd'
-    morgan-stanley.com/vnet-cidr: '10.50.0.0/16'
-    morgan-stanley.com/pod-cidr: '10.248.0.0/16'
-    morgan-stanley.com/service-cidr: '10.112.0.0/16'
-    morgan-stanley.com/dns-zone: dev-sandbox.ms.internal
-    morgan-stanley.com/network-policy: standard
-    morgan-stanley.com/auth-provider: Entra ID
-    morgan-stanley.com/vault-path: secret/kaas/dev-sandbox-aks
-    morgan-stanley.com/compliance-status: compliant
-    morgan-stanley.com/pci-compliant: 'false'
-    morgan-stanley.com/monthly-cost: '1240'
-    morgan-stanley.com/cost-trend: '-2.3'
-  tags:
-    - workload-cluster
-    - azure
-    - development
-    - sandbox
-spec:
-  type: kubernetes-cluster
-  owner: group:platform-engineering
-  system: kaas-azure
-  lifecycle: development
-
----
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: dev-ml-gke
-  title: dev-ml-gke
-  description: >
-    Development GKE cluster for Machine Learning experimentation.
-    GPU-enabled with T4 accelerators for model training workloads.
-  annotations:
-    backstage.io/kubernetes-id: dev-ml-gke
-    backstage.io/kubernetes-namespace: default
-    morgan-stanley.com/csp: gcp
-    morgan-stanley.com/environment: development
-    morgan-stanley.com/region: europe-west1
-    morgan-stanley.com/kubernetes-version: '1.30.0'
-    morgan-stanley.com/cluster-type: workload
-    morgan-stanley.com/cluster-status: running
-    morgan-stanley.com/node-count: '6'
-    morgan-stanley.com/instance-type: n1-standard-8
-    morgan-stanley.com/addons: 'kube-prometheus-stack,cert-manager,argocd,namespace-operator'
-    morgan-stanley.com/vnet-cidr: '10.60.0.0/16'
-    morgan-stanley.com/pod-cidr: '10.249.0.0/16'
-    morgan-stanley.com/service-cidr: '10.116.0.0/16'
-    morgan-stanley.com/dns-zone: dev-ml.ms.internal
-    morgan-stanley.com/network-policy: standard
-    morgan-stanley.com/auth-provider: Entra ID
-    morgan-stanley.com/vault-path: secret/kaas/dev-ml-gke
-    morgan-stanley.com/compliance-status: review-required
-    morgan-stanley.com/pci-compliant: 'false'
-    morgan-stanley.com/monthly-cost: '4560'
-    morgan-stanley.com/cost-trend: '+8.7'
-  tags:
-    - workload-cluster
-    - gcp
-    - development
-    - ml
-    - gpu
-spec:
-  type: kubernetes-cluster
-  owner: group:platform-engineering
-  system: kaas-gcp
-  lifecycle: development
 
 ---
 # ============================================================================
@@ -488,12 +106,7 @@ metadata:
   name: kaas-backstage-app
   title: KaaS Backstage Application
   description: The Backstage frontend application for the KaaS Platform
-  annotations:
-    github.com/project-slug: morganstanley/kaas-platform
-  tags:
-    - backstage
-    - typescript
-    - react
+  tags: [backstage, typescript, react]
 spec:
   type: website
   owner: group:platform-engineering
@@ -506,12 +119,8 @@ kind: Component
 metadata:
   name: kaas-argocd
   title: ArgoCD GitOps Controller
-  description: >
-    ArgoCD instances managing cluster GitOps workflows. Syncs CAPI manifests
-    and cluster add-ons from Git repositories to management clusters.
-  tags:
-    - argocd
-    - gitops
+  description: ArgoCD instances managing cluster GitOps workflows.
+  tags: [argocd, gitops]
 spec:
   type: service
   owner: group:platform-engineering
@@ -524,12 +133,8 @@ kind: Component
 metadata:
   name: kaas-vault
   title: HashiCorp Vault
-  description: >
-    HashiCorp Vault for secrets management across all KaaS clusters.
-    Manages TLS certificates, service account tokens, and application secrets.
-  tags:
-    - vault
-    - secrets
+  description: Secrets management across all KaaS clusters.
+  tags: [vault, secrets]
 spec:
   type: service
   owner: group:platform-engineering
@@ -542,12 +147,8 @@ kind: Component
 metadata:
   name: kaas-prometheus
   title: Prometheus Monitoring Stack
-  description: >
-    Central Prometheus instance with remote write receivers from all
-    managed clusters. Powers Grafana dashboards and alerting.
-  tags:
-    - prometheus
-    - monitoring
+  description: Central Prometheus instance with remote write receivers.
+  tags: [prometheus, monitoring]
 spec:
   type: monitoring
   owner: group:platform-engineering

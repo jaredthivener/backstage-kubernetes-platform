@@ -91,36 +91,25 @@ auth:
 # ============================================================================
 # Kubernetes Plugin Configuration
 # ============================================================================
-kubernetes:
-  serviceLocatorMethod:
-    type: 'multiTenant'
-  clusterLocatorMethods:
-    - type: 'config'
-      clusters:
-        # Azure Management Cluster
-        - url: ${AKS_MGMT_CLUSTER_URL}
-          name: ms-azure-mgmt
-          authProvider: 'azure'
-          title: 'Azure Management Cluster'
-          dashboardUrl: https://portal.azure.com
-          dashboardApp: standard
-          caData: ${AKS_MGMT_CA_DATA}
-        # AWS Management Cluster
-        - url: ${EKS_MGMT_CLUSTER_URL}
-          name: ms-aws-mgmt
-          authProvider: 'aws'
-          title: 'AWS Management Cluster'
-          dashboardUrl: https://console.aws.amazon.com/eks
-          dashboardApp: standard
-          caData: ${EKS_MGMT_CA_DATA}
-        # GCP Management Cluster
-        - url: ${GKE_MGMT_CLUSTER_URL}
-          name: ms-gcp-mgmt
-          authProvider: 'google'
-          title: 'GCP Management Cluster'
-          dashboardUrl: https://console.cloud.google.com/kubernetes
-          dashboardApp: standard
-          caData: ${GKE_MGMT_CA_DATA}
+# ============================================================================
+# Kubernetes Plugin Configuration
+# Uncomment and set env vars when connecting to real clusters
+# ============================================================================
+# kubernetes:
+#   serviceLocatorMethod:
+#     type: 'multiTenant'
+#   clusterLocatorMethods:
+#     - type: 'config'
+#       clusters:
+#         - url: ${AKS_MGMT_CLUSTER_URL}
+#           name: ms-azure-mgmt
+#           authProvider: 'azure'
+#         - url: ${EKS_MGMT_CLUSTER_URL}
+#           name: ms-aws-mgmt
+#           authProvider: 'aws'
+#         - url: ${GKE_MGMT_CLUSTER_URL}
+#           name: ms-gcp-mgmt
+#           authProvider: 'google'
 
 scaffolder:
   defaultAuthor:
@@ -180,7 +169,11 @@ catalog:
     - type: file
       target: ../../catalog/systems.yaml
       rules:
-        - allow: [System, Resource, Component]
+        - allow: [System, Component]
+    - type: file
+      target: ../../catalog/clusters.yaml
+      rules:
+        - allow: [Resource]
     - type: file
       target: ../../catalog/groups.yaml
       rules:

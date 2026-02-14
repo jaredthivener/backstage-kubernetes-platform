@@ -65,8 +65,9 @@ backend.add(import('@backstage/plugin-search-backend-module-techdocs'));
 
 // ============================================================================
 // Kubernetes - Multi-cluster visibility
+// Uncomment when connecting to real clusters with proper kubeconfig
 // ============================================================================
-backend.add(import('@backstage/plugin-kubernetes-backend'));
+// backend.add(import('@backstage/plugin-kubernetes-backend'));
 
 // ============================================================================
 // Notifications & Signals - Real-time updates
