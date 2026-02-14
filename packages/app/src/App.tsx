@@ -99,18 +99,7 @@ const app = createApp({
       <SignInPage
         {...props}
         auto
-        providers={[
-          {
-            id: 'microsoft-auth-provider',
-            title: 'Morgan Stanley SSO',
-            message: 'Sign in with your Morgan Stanley Entra ID account',
-            apiRef: {
-              id: 'internal.microsoft',
-              T: '' as any,
-            } as any,
-          },
-          'guest',
-        ]}
+        providers={['guest']}
       />
     ),
   },
