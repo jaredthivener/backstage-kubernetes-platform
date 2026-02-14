@@ -1,0 +1,155 @@
+# =============================================================================
+# AWS Management Cluster — Kustomize Base
+# Manages CAPI + CAPA controllers, ArgoCD, and supporting infrastructure
+# on the AWS (EKS) management cluster.
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: mgmt-aws
+  annotations:
+    morgan-stanley.com/managed-by: platform-engineering
+    morgan-stanley.com/cluster-role: management
+    morgan-stanley.com/cloud-provider: aws
+
+namespace: capi-system
+
+resources:
+  # ── Cluster API Core ───────────────────────────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.0/core-components.yaml
+
+  # ── CAPA (AWS) Infrastructure Provider ─────────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api-provider-aws/releases/download/v2.6.0/infrastructure-components.yaml
+
+  # ── Bootstrap & Control Plane Providers ────────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.0/bootstrap-components.yaml
+  - https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.0/control-plane-components.yaml
+
+  # ── EKS Bootstrap & Control Plane Providers ────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api-provider-aws/releases/download/v2.6.0/eks-bootstrap-components.yaml
+  - https://github.com/kubernetes-sigs/cluster-api-provider-aws/releases/download/v2.6.0/eks-controlplane-components.yaml
+
+  # ── ArgoCD ─────────────────────────────────────────────────────────────────
+  - argocd/namespace.yaml
+  - argocd/argocd-install.yaml
+  - argocd/argocd-cm.yaml
+  - argocd/argocd-rbac-cm.yaml
+  - argocd/argocd-notifications-cm.yaml
+  - argocd/argocd-repo-credentials.yaml
+  - argocd/appproject-kubernetes-clusters.yaml
+
+  # ── cert-manager ───────────────────────────────────────────────────────────
+  - cert-manager/cert-manager.yaml
+  - cert-manager/cluster-issuer.yaml
+
+  # ── Monitoring ─────────────────────────────────────────────────────────────
+  - monitoring/prometheus-operator.yaml
+  - monitoring/servicemonitor-capi.yaml
+  - monitoring/grafana-dashboards.yaml
+
+  # ── CAPI Cluster Namespace ────────────────────────────────────────────────
+  - namespaces/capi-clusters.yaml
+
+patches:
+  # ── CAPA identity: use IAM Roles for Service Accounts (IRSA / OIDC) ───────
+  - target:
+      kind: Deployment
+      name: capa-controller-manager
+      namespace: capa-system
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: capa-controller-manager
+        namespace: capa-system
+      spec:
+        template:
+          metadata:
+            annotations:
+              eks.amazonaws.com/role-arn: "${AWS_CAPA_CONTROLLER_ROLE_ARN}"
+          spec:
+            serviceAccountName: capa-controller-manager
+            containers:
+              - name: manager
+                env:
+                  - name: AWS_REGION
+                    value: us-east-1
+                  - name: AWS_SHARED_CREDENTIALS_FILE
+                    value: ""
+
+  # ── ArgoCD: configure SSO with Azure AD / Entra ID (centralized IdP) ──────
+  - target:
+      kind: ConfigMap
+      name: argocd-cm
+      namespace: argocd
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-cm
+        namespace: argocd
+      data:
+        url: https://argocd.internal.ms.com
+        oidc.config: |
+          name: AzureAD
+          issuer: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
+          clientID: ${ARGOCD_AZURE_CLIENT_ID}
+          clientSecret: $argocd-azure-secret:client-secret
+          requestedScopes: ["openid", "profile", "email"]
+        resource.customizations.health.cluster.x-k8s.io_Cluster: |
+          hs = {}
+          if obj.status ~= nil then
+            if obj.status.conditions ~= nil then
+              for _, condition in ipairs(obj.status.conditions) do
+                if condition.type == "Ready" and condition.status == "True" then
+                  hs.status = "Healthy"
+                  hs.message = "Cluster is ready"
+                  return hs
+                end
+              end
+            end
+          end
+          hs.status = "Progressing"
+          hs.message = "Cluster is being provisioned"
+          return hs
+
+  # ── Resource limits for CAPI controllers ──────────────────────────────────
+  - target:
+      kind: Deployment
+      name: capi-controller-manager
+      namespace: capi-system
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: capi-controller-manager
+      spec:
+        template:
+          spec:
+            containers:
+              - name: manager
+                resources:
+                  requests:
+                    cpu: 200m
+                    memory: 256Mi
+                  limits:
+                    cpu: "1"
+                    memory: 1Gi
+
+commonLabels:
+  app.kubernetes.io/part-of: kubernetes-platform
+  app.kubernetes.io/managed-by: kustomize
+  morgan-stanley.com/cluster-role: management
+  morgan-stanley.com/cloud-provider: aws
+
+configMapGenerator:
+  - name: capi-aws-config
+    namespace: capa-system
+    literals:
+      - AWS_REGION=us-east-1
+      - CLUSTER_TOPOLOGY=true
+      - EXP_MACHINE_POOL=true
+      - EXP_EKS_IAM=true
+      - EXP_EKS_FARGATE=false
+      - CAPA_EKS_ADD_ROLES=true

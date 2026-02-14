@@ -1,111 +1,210 @@
 app:
-  title: Scaffolded Backstage App
+  title: Morgan Stanley KaaS Platform
   baseUrl: http://localhost:3000
+  support:
+    url: https://github.com/morganstanley/kaas-platform/issues
+    items:
+      - title: KaaS Platform Support
+        icon: chat
+        links:
+          - url: https://teams.microsoft.com/l/channel/kaas-support
+            title: '#kaas-support on Teams'
+      - title: Platform Engineering
+        icon: group
+        links:
+          - url: https://backstage.ms.com/catalog/default/group/platform-engineering
+            title: Platform Engineering Team
 
 organization:
-  name: My Company
+  name: Morgan Stanley
 
 backend:
-  # Used for enabling authentication, secret is shared by all backend plugins
-  # See https://backstage.io/docs/auth/service-to-service-auth for
-  # information on the format
-  # auth:
-  #   keys:
-  #     - secret: ${BACKEND_SECRET}
   baseUrl: http://localhost:7007
   listen:
     port: 7007
-    # Uncomment the following host directive to bind to specific interfaces
-    # host: 127.0.0.1
   csp:
     connect-src: ["'self'", 'http:', 'https:']
-    # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
-    # Default Helmet Content-Security-Policy values can be removed by setting the key to false
+    img-src: ["'self'", 'data:', 'https://avatars.githubusercontent.com']
   cors:
     origin: http://localhost:3000
     methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
     credentials: true
-  # This is for local development only, it is not recommended to use this in production
-  # The production database configuration is stored in app-config.production.yaml
   database:
     client: better-sqlite3
     connection: ':memory:'
-  # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
+  # workingDirectory: /tmp
 
 integrations:
   github:
     - host: github.com
-      # This is a Personal Access Token or PAT from GitHub. You can find out how to generate this token, and more information
-      # about setting up the GitHub integration here: https://backstage.io/docs/integrations/github/locations#configuration
       token: ${GITHUB_TOKEN}
-    ### Example for how to add your GitHub Enterprise instance using the API:
-    # - host: ghe.example.net
-    #   apiBaseUrl: https://ghe.example.net/api/v3
-    #   token: ${GHE_TOKEN}
 
 proxy:
-  ### Example for how to add a proxy endpoint for the frontend.
-  ### A typical reason to do this is to handle HTTPS and CORS for internal services.
-  # endpoints:
-  #   '/test':
-  #     target: 'https://example.com'
-  #     changeOrigin: true
+  endpoints:
+    # ArgoCD API proxy
+    '/argocd/api':
+      target: ${ARGOCD_BASE_URL:-http://localhost:8080}/api/v1/
+      changeOrigin: true
+      headers:
+        Cookie: argocd.token=${ARGOCD_AUTH_TOKEN:-placeholder}
+    # Prometheus API proxy
+    '/prometheus/api':
+      target: ${PROMETHEUS_URL:-http://localhost:9090}
+      changeOrigin: true
+    # Grafana API proxy
+    '/grafana/api':
+      target: ${GRAFANA_URL:-http://localhost:3001}
+      changeOrigin: true
+      headers:
+        Authorization: Bearer ${GRAFANA_TOKEN:-placeholder}
+    # Vault API proxy
+    '/vault/api':
+      target: ${VAULT_ADDR:-http://localhost:8200}
+      changeOrigin: true
+      headers:
+        X-Vault-Token: ${VAULT_TOKEN:-placeholder}
 
-# Reference documentation http://backstage.io/docs/features/techdocs/configuration
-# Note: After experimenting with basic setup, use CI/CD to generate docs
-# and an external cloud storage when deploying TechDocs for production use-case.
-# https://backstage.io/docs/features/techdocs/how-to-guides#how-to-migrate-from-techdocs-basic-to-recommended-deployment-approach
 techdocs:
-  builder: 'local' # Alternatives - 'external'
+  builder: 'local'
   generator:
-    runIn: 'docker' # Alternatives - 'local'
+    runIn: 'docker'
   publisher:
-    type: 'local' # Alternatives - 'googleGcs' or 'awsS3'. Read documentation for using alternatives.
+    type: 'local'
 
+# ============================================================================
+# Authentication - Microsoft Entra ID (Azure AD)
+# ============================================================================
 auth:
-  # see https://backstage.io/docs/auth/ to learn about auth providers
+  environment: development
   providers:
-    # See https://backstage.io/docs/auth/guest/provider
     guest: {}
+    microsoft:
+      development:
+        clientId: ${AZURE_CLIENT_ID}
+        clientSecret: ${AZURE_CLIENT_SECRET}
+        tenantId: ${AZURE_TENANT_ID}
+        domainHint: morganstanley.com
+        additionalScopes:
+          - 'User.Read'
+          - 'GroupMember.Read.All'
+
+# ============================================================================
+# Kubernetes Plugin Configuration
+# ============================================================================
+kubernetes:
+  serviceLocatorMethod:
+    type: 'multiTenant'
+  clusterLocatorMethods:
+    - type: 'config'
+      clusters:
+        # Azure Management Cluster
+        - url: ${AKS_MGMT_CLUSTER_URL}
+          name: ms-azure-mgmt
+          authProvider: 'azure'
+          title: 'Azure Management Cluster'
+          dashboardUrl: https://portal.azure.com
+          dashboardApp: standard
+          caData: ${AKS_MGMT_CA_DATA}
+        # AWS Management Cluster
+        - url: ${EKS_MGMT_CLUSTER_URL}
+          name: ms-aws-mgmt
+          authProvider: 'aws'
+          title: 'AWS Management Cluster'
+          dashboardUrl: https://console.aws.amazon.com/eks
+          dashboardApp: standard
+          caData: ${EKS_MGMT_CA_DATA}
+        # GCP Management Cluster
+        - url: ${GKE_MGMT_CLUSTER_URL}
+          name: ms-gcp-mgmt
+          authProvider: 'google'
+          title: 'GCP Management Cluster'
+          dashboardUrl: https://console.cloud.google.com/kubernetes
+          dashboardApp: standard
+          caData: ${GKE_MGMT_CA_DATA}
 
 scaffolder:
-  # see https://backstage.io/docs/features/software-templates/configuration for software template options
+  defaultAuthor:
+    name: Morgan Stanley KaaS Platform
+    email: kaas-platform@morganstanley.com
+  defaultCommitMessage: 'chore: scaffolder action from KaaS Platform'
 
 catalog:
   import:
     entityFilename: catalog-info.yaml
     pullRequestBranchName: backstage-integration
   rules:
-    - allow: [Component, System, API, Resource, Location]
+    - allow:
+        - Component
+        - System
+        - API
+        - Resource
+        - Location
+        - Template
+        - Group
+        - User
   locations:
-    # Local example data, file locations are relative to the backend process, typically `packages/backend`
+    # ========================================================================
+    # KaaS Platform Templates
+    # ========================================================================
+    # Cluster Provisioning
+    - type: file
+      target: ../../templates/kubernetes-cluster/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Day 2 Operations
+    - type: file
+      target: ../../templates/cluster-upgrade/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/cluster-scale/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/cluster-destroy/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/namespace-request/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/addon-management/template.yaml
+      rules:
+        - allow: [Template]
+
+    # ========================================================================
+    # Platform Catalog Entities
+    # ========================================================================
+    - type: file
+      target: ../../catalog/systems.yaml
+      rules:
+        - allow: [System]
+    - type: file
+      target: ../../catalog/groups.yaml
+      rules:
+        - allow: [Group, User]
+
+    # ========================================================================
+    # Example data (can be removed in production)
+    # ========================================================================
     - type: file
       target: ../../examples/entities.yaml
-
-    # Local example template
     - type: file
       target: ../../examples/template/template.yaml
       rules:
         - allow: [Template]
-
-    # Local example organizational data
     - type: file
       target: ../../examples/org.yaml
       rules:
         - allow: [User, Group]
-
-    ## Uncomment these lines to add more example data
-    # - type: url
-    #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
 
     ## Uncomment these lines to add an example org
     # - type: url
     #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/acme-corp.yaml
     #   rules:
     #     - allow: [User, Group]
-
-kubernetes:
-  # see https://backstage.io/docs/features/kubernetes/configuration for kubernetes configuration options
 
 # see https://backstage.io/docs/permissions/getting-started for more on the permission framework
 permission:

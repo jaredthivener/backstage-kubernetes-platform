@@ -1,19 +1,19 @@
 app:
-  # Should be the same as backend.baseUrl when using the `app-backend` plugin.
-  baseUrl: http://localhost:7007
+  baseUrl: https://kaas.ms.com
+  title: Morgan Stanley KaaS Platform
 
 backend:
-  # Note that the baseUrl should be the URL that the browser and other clients
-  # should use when communicating with the backend, i.e. it needs to be
-  # reachable not just from within the backend host, but from all of your
-  # callers. When its value is "http://localhost:7007", it's strictly private
-  # and can't be reached by others.
-  baseUrl: http://localhost:7007
-  # The listener can also be expressed as a single <host>:<port> string. In this case we bind to
-  # all interfaces, the most permissive setting. The right value depends on your specific deployment.
+  baseUrl: https://kaas.ms.com
   listen: ':7007'
+  csp:
+    connect-src: ["'self'", 'http:', 'https:']
+    img-src: ["'self'", 'data:', 'https:']
+    frame-src: ["'self'", 'https://grafana.ms.com']
+  cors:
+    origin: https://kaas.ms.com
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: true
 
-  # config options: https://node-postgres.com/apis/client
   database:
     client: pg
     connection:
@@ -21,35 +21,132 @@ backend:
       port: ${POSTGRES_PORT}
       user: ${POSTGRES_USER}
       password: ${POSTGRES_PASSWORD}
-      # https://node-postgres.com/features/ssl
-      # you can set the sslmode configuration option via the `PGSSLMODE` environment variable
-      # see https://www.postgresql.org/docs/current/libpq-ssl.html Table 33.1. SSL Mode Descriptions (e.g. require)
-      # ssl:
-      #   ca: # if you have a CA file and want to verify it you can uncomment this section
-      #     $file: <file-path>/ca/server.crt
+      ssl:
+        require: true
+        rejectUnauthorized: true
+
+  cache:
+    store: memory
 
 auth:
+  environment: production
   providers:
-    guest: {}
+    microsoft:
+      production:
+        clientId: ${AZURE_CLIENT_ID}
+        clientSecret: ${AZURE_CLIENT_SECRET}
+        tenantId: ${AZURE_TENANT_ID}
+        domainHint: morganstanley.com
+        signIn:
+          resolvers:
+            - resolver: emailMatchingUserEntityAnnotation
+
+proxy:
+  endpoints:
+    '/argocd/api':
+      target: ${ARGOCD_URL}
+      headers:
+        Cookie: argocd.token=${ARGOCD_AUTH_TOKEN}
+      changeOrigin: true
+      secure: true
+    '/prometheus/api':
+      target: ${PROMETHEUS_URL}
+      changeOrigin: true
+      secure: true
+    '/grafana/api':
+      target: ${GRAFANA_URL}
+      headers:
+        Authorization: Bearer ${GRAFANA_TOKEN}
+      changeOrigin: true
+      secure: true
+    '/vault/api':
+      target: ${VAULT_URL}
+      headers:
+        X-Vault-Token: ${VAULT_TOKEN}
+      changeOrigin: true
+      secure: true
+
+kubernetes:
+  serviceLocatorMethod:
+    type: multiTenant
+  clusterLocatorMethods:
+    - type: config
+      clusters:
+        # Azure Management Cluster
+        - name: ms-azure-mgmt
+          url: ${AZURE_MGMT_CLUSTER_URL}
+          authProvider: serviceAccount
+          serviceAccountToken: ${AZURE_MGMT_SA_TOKEN}
+          caData: ${AZURE_MGMT_CA_DATA}
+          dashboardApp: standard
+          title: Azure Management Cluster
+        # AWS Management Cluster
+        - name: ms-aws-mgmt
+          url: ${AWS_MGMT_CLUSTER_URL}
+          authProvider: serviceAccount
+          serviceAccountToken: ${AWS_MGMT_SA_TOKEN}
+          caData: ${AWS_MGMT_CA_DATA}
+          dashboardApp: standard
+          title: AWS Management Cluster
+        # GCP Management Cluster
+        - name: ms-gcp-mgmt
+          url: ${GCP_MGMT_CLUSTER_URL}
+          authProvider: serviceAccount
+          serviceAccountToken: ${GCP_MGMT_SA_TOKEN}
+          caData: ${GCP_MGMT_CA_DATA}
+          dashboardApp: standard
+          title: GCP Management Cluster
 
 catalog:
-  # Overrides the default list locations from app-config.yaml as these contain example data.
-  # See https://backstage.io/docs/features/software-catalog/#adding-components-to-the-catalog for more details
-  # on how to get entities into the catalog.
+  rules:
+    - allow: [Component, System, API, Resource, Location, Template, Group, User, Domain]
   locations:
-    # Local example data, replace this with your production config, these are intended for demo use only.
-    # File locations are relative to the backend process, typically in a deployed context, such as in a Docker container, this will be the root
+    # Platform catalog entities
     - type: file
-      target: ./examples/entities.yaml
+      target: ./catalog/systems.yaml
+      rules:
+        - allow: [System, Resource, Component]
+    - type: file
+      target: ./catalog/groups.yaml
+      rules:
+        - allow: [Group, User]
 
-    # Local example template
+    # Cluster provisioning template
     - type: file
-      target: ./examples/template/template.yaml
+      target: ./templates/kubernetes-cluster/template.yaml
       rules:
         - allow: [Template]
 
-    # Local example organizational data
+    # Day 2 operations templates
     - type: file
-      target: ./examples/org.yaml
+      target: ./templates/cluster-upgrade/template.yaml
       rules:
-        - allow: [User, Group]
+        - allow: [Template]
+    - type: file
+      target: ./templates/cluster-scale/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/cluster-destroy/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/namespace-request/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/addon-management/template.yaml
+      rules:
+        - allow: [Template]
+
+    # GitHub org discovery (production)
+    # - type: github-org
+    #   target: https://github.com/morgan-stanley
+    #   rules:
+    #     - allow: [User, Group]
+
+scaffolder:
+  defaultAuthor:
+    name: Morgan Stanley KaaS Bot
+    email: kaas-bot@morganstanley.com
+  defaultCommitMessage: 'feat: scaffolded by Morgan Stanley KaaS Platform'

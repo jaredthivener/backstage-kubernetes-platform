@@ -1,0 +1,143 @@
+---
+# ============================================================================
+# Morgan Stanley KaaS Platform - Organization Structure
+# ============================================================================
+# Groups and users for RBAC. In production, these would be synced from
+# Entra ID (Azure AD) using the Microsoft Graph org provider.
+# ============================================================================
+
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: morgan-stanley
+  title: Morgan Stanley
+  description: Morgan Stanley - Top-level organization
+spec:
+  type: organization
+  children:
+    - technology
+    - risk-engineering
+    - wealth-management-tech
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: technology
+  title: Technology Division
+  description: Morgan Stanley Technology Division
+spec:
+  type: division
+  parent: morgan-stanley
+  children:
+    - platform-engineering
+    - cloud-infrastructure
+    - security-engineering
+    - sre
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: platform-engineering
+  title: Platform Engineering
+  description: >
+    Platform Engineering team responsible for the KaaS Platform,
+    Kubernetes infrastructure, and developer tooling.
+  annotations:
+    graph.microsoft.com/group-id: ${ENTRA_PLATFORM_ENG_GROUP_ID}
+  links:
+    - url: https://teams.microsoft.com/l/channel/platform-engineering
+      title: Teams Channel
+      icon: chat
+spec:
+  type: team
+  parent: technology
+  children: []
+  members:
+    - kaas-admin
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: cloud-infrastructure
+  title: Cloud Infrastructure
+  description: Cloud Infrastructure team managing CSP accounts and networking
+  annotations:
+    graph.microsoft.com/group-id: ${ENTRA_CLOUD_INFRA_GROUP_ID}
+spec:
+  type: team
+  parent: technology
+  children: []
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: security-engineering
+  title: Security Engineering
+  description: Security Engineering team managing Vault, policies, and compliance
+  annotations:
+    graph.microsoft.com/group-id: ${ENTRA_SECURITY_ENG_GROUP_ID}
+spec:
+  type: team
+  parent: technology
+  children: []
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: sre
+  title: Site Reliability Engineering
+  description: SRE team responsible for monitoring, alerting, and incident response
+  annotations:
+    graph.microsoft.com/group-id: ${ENTRA_SRE_GROUP_ID}
+spec:
+  type: team
+  parent: technology
+  children: []
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: risk-engineering
+  title: Risk Engineering
+  description: Risk Engineering division technology teams
+spec:
+  type: division
+  parent: morgan-stanley
+  children: []
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: wealth-management-tech
+  title: Wealth Management Technology
+  description: Wealth Management division technology teams
+spec:
+  type: division
+  parent: morgan-stanley
+  children: []
+
+---
+# ============================================================================
+# Example Users (in production, synced from Entra ID)
+# ============================================================================
+
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: kaas-admin
+  title: KaaS Platform Admin
+  annotations:
+    graph.microsoft.com/user-id: example-user-id
+spec:
+  profile:
+    displayName: KaaS Admin
+    email: kaas-admin@morganstanley.com
+  memberOf:
+    - platform-engineering

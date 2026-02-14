@@ -1,0 +1,249 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kubernetes-cluster-scale
+  title: Scale Kubernetes Node Pools
+  description: |
+    Scale the node pools of an existing Kubernetes cluster. This template
+    creates a pull request against the cluster's GitOps repository to modify
+    MachineDeployment replicas, autoscaler bounds, or instance types.
+    ArgoCD syncs the change and Cluster API reconciles the desired state.
+  tags:
+    - kubernetes
+    - cluster-api
+    - day2
+    - scaling
+    - gitops
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    morgan-stanley.com/owner-squad: platform-engineering
+    morgan-stanley.com/compliance: pci-dss
+  links:
+    - title: Scaling Runbook
+      url: https://docs.internal.ms.com/platform/kubernetes/scaling
+      icon: docs
+    - title: Capacity Planning Guide
+      url: https://docs.internal.ms.com/platform/kubernetes/capacity
+      icon: dashboard
+spec:
+  owner: group:platform-engineering
+  type: infrastructure
+  lifecycle: production
+
+  # ---------------------------------------------------------------------------
+  # Parameters – multi-step wizard
+  # ---------------------------------------------------------------------------
+  parameters:
+    # ── Step 1: Select Cluster ───────────────────────────────────────────────
+    - title: Select Cluster
+      required:
+        - clusterRef
+      properties:
+        clusterRef:
+          title: Target Cluster
+          type: string
+          description: Select the Kubernetes cluster to scale from the catalog.
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind: Resource
+              spec.type: kubernetes-cluster
+            defaultKind: Resource
+          ui:autofocus: true
+
+    # ── Step 2: Node Pool Selection ──────────────────────────────────────────
+    - title: Node Pool Selection
+      required:
+        - nodePool
+      properties:
+        nodePool:
+          title: Node Pool
+          type: string
+          description: The node pool (MachineDeployment) to scale.
+          default: default-worker-pool
+          enum:
+            - default-worker-pool
+            - high-memory-pool
+            - gpu-pool
+            - spot-pool
+          enumNames:
+            - Default Worker Pool
+            - High Memory Pool
+            - GPU Pool
+            - Spot / Preemptible Pool
+
+    # ── Step 3: Scaling Configuration ────────────────────────────────────────
+    - title: Scaling Configuration
+      required:
+        - desiredCount
+        - minCount
+        - maxCount
+      properties:
+        desiredCount:
+          title: Desired Node Count
+          type: integer
+          description: The desired number of nodes in the pool.
+          minimum: 1
+          maximum: 200
+          default: 5
+          ui:widget: range
+
+        minCount:
+          title: Minimum Node Count (Autoscaler)
+          type: integer
+          description: Minimum number of nodes the autoscaler can scale down to.
+          minimum: 1
+          maximum: 100
+          default: 3
+
+        maxCount:
+          title: Maximum Node Count (Autoscaler)
+          type: integer
+          description: Maximum number of nodes the autoscaler can scale up to.
+          minimum: 1
+          maximum: 500
+          default: 20
+
+        changeInstanceType:
+          title: Change Instance Type
+          type: boolean
+          default: false
+          description: Also change the VM / instance type for this node pool.
+
+        instanceType:
+          title: Instance Type
+          type: string
+          description: New instance type for the node pool (only when changing).
+          enum:
+            # Azure
+            - Standard_D4s_v5
+            - Standard_D8s_v5
+            - Standard_D16s_v5
+            - Standard_D32s_v5
+            - Standard_E8s_v5
+            - Standard_E16s_v5
+            # AWS
+            - m6i.xlarge
+            - m6i.2xlarge
+            - m6i.4xlarge
+            - m6i.8xlarge
+            - r6i.2xlarge
+            - r6i.4xlarge
+            # GCP
+            - e2-standard-4
+            - e2-standard-8
+            - e2-standard-16
+            - e2-standard-32
+            - n2-highmem-8
+            - n2-highmem-16
+
+      dependencies:
+        changeInstanceType:
+          oneOf:
+            - properties:
+                changeInstanceType:
+                  const: true
+              required:
+                - instanceType
+            - properties:
+                changeInstanceType:
+                  const: false
+
+    # ── Step 4: Confirmation ─────────────────────────────────────────────────
+    - title: Review & Confirm
+      properties:
+        prBranch:
+          title: Pull Request Branch Name
+          type: string
+          default: scale/node-pool-update
+          description: Branch name for the scaling pull request.
+          pattern: '^[a-z0-9][a-z0-9/_-]{2,60}$'
+
+        justification:
+          title: Justification
+          type: string
+          description: Reason for scaling (shown in PR and audit log).
+          ui:widget: textarea
+          ui:options:
+            rows: 3
+
+  # ---------------------------------------------------------------------------
+  # Steps
+  # ---------------------------------------------------------------------------
+  steps:
+    # ── 1. Fetch cluster info from catalog ───────────────────────────────────
+    - id: catalog-fetch
+      name: Fetch cluster details from catalog
+      action: catalog:fetch
+      input:
+        entityRef: ${{ parameters.clusterRef }}
+
+    # ── 2. Fetch & render the scale patch ────────────────────────────────────
+    - id: fetch-template
+      name: Render scaling manifests
+      action: fetch:template
+      input:
+        url: ./skeleton
+        targetPath: ./scale-patch
+        values:
+          clusterRef: ${{ parameters.clusterRef }}
+          nodePool: ${{ parameters.nodePool }}
+          desiredCount: ${{ parameters.desiredCount }}
+          minCount: ${{ parameters.minCount }}
+          maxCount: ${{ parameters.maxCount }}
+          changeInstanceType: ${{ parameters.changeInstanceType }}
+          instanceType: ${{ parameters.instanceType }}
+
+    # ── 3. Open PR against the cluster's GitOps repo ─────────────────────────
+    - id: publish-pr
+      name: Open scaling pull request
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=morgan-stanley&repo=k8s-cluster-${{ steps['catalog-fetch'].output.entity.metadata.annotations['morgan-stanley.com/gitops-repo'] }}
+        branchName: ${{ parameters.prBranch }}
+        title: 'chore(scale): ${{ parameters.nodePool }} → ${{ parameters.desiredCount }} nodes (min ${{ parameters.minCount }} / max ${{ parameters.maxCount }})'
+        description: |
+          ## Node Pool Scaling Request
+
+          | Field | Value |
+          |-------|-------|
+          | **Cluster** | `${{ parameters.clusterRef }}` |
+          | **Node Pool** | `${{ parameters.nodePool }}` |
+          | **Desired Count** | `${{ parameters.desiredCount }}` |
+          | **Autoscaler Min** | `${{ parameters.minCount }}` |
+          | **Autoscaler Max** | `${{ parameters.maxCount }}` |
+          | **Instance Type Change** | `${{ parameters.changeInstanceType }}` |
+          | **New Instance Type** | `${{ parameters.instanceType }}` |
+
+          ### Justification
+          ${{ parameters.justification }}
+
+          ---
+          _Opened by Backstage Software Template `kubernetes-cluster-scale`._
+        sourcePath: ./scale-patch
+        targetPath: /
+
+  # ---------------------------------------------------------------------------
+  # Output
+  # ---------------------------------------------------------------------------
+  output:
+    links:
+      - title: Scaling Pull Request
+        url: ${{ steps['publish-pr'].output.remoteUrl }}
+      - title: Cluster in Backstage Catalog
+        entityRef: ${{ parameters.clusterRef }}
+      - title: ArgoCD Application
+        url: https://argocd.internal.ms.com/applications/${{ parameters.clusterRef }}
+      - title: Grafana — Node Pool Metrics
+        url: https://grafana.internal.ms.com/d/node-pool-metrics?var-cluster=${{ parameters.clusterRef }}&var-pool=${{ parameters.nodePool }}
+    text:
+      - title: Next Steps
+        content: |
+          A pull request has been opened to scale the **${{ parameters.nodePool }}**
+          node pool on cluster **${{ parameters.clusterRef }}** to
+          **${{ parameters.desiredCount }}** desired nodes
+          (autoscaler range: ${{ parameters.minCount }}–${{ parameters.maxCount }}).
+
+          1. Review the PR and get approval from the platform team.
+          2. Once merged, ArgoCD will sync the MachineDeployment changes.
+          3. Cluster API will reconcile — new nodes typically join within 5 minutes.

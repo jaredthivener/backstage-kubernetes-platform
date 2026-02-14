@@ -1,0 +1,124 @@
+# ArgoCD Application – manages the cluster GitOps repo
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-${{ values.environment }}-${{ values.clusterName }}
+  namespace: argocd
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/cloud-provider: ${{ values.cloudProvider }}
+    morgan-stanley.com/owner: ${{ values.ownerTeam }}
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: platform-notifications
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: platform-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.pagerduty: platform-oncall
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: kubernetes-clusters
+
+  source:
+    repoURL: https://github.com/${{ values.repoOwner }}/k8s-cluster-${{ values.environment }}-${{ values.clusterName }}.git
+    targetRevision: main
+    path: /
+    directory:
+      recurse: true
+      include: '*.yaml'
+      exclude: 'catalog-info.yaml'
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: capi-clusters
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    managedNamespaceMetadata:
+      labels:
+        morgan-stanley.com/managed-by: argocd
+        morgan-stanley.com/compliance: pci-dss
+
+  ignoreDifferences:
+    - group: infrastructure.cluster.x-k8s.io
+      kind: "*"
+      jsonPointers:
+        - /status
+    - group: cluster.x-k8s.io
+      kind: "*"
+      jsonPointers:
+        - /status
+
+  revisionHistoryLimit: 10
+
+---
+# ArgoCD AppProject for Kubernetes clusters
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: kubernetes-clusters
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+  annotations:
+    morgan-stanley.com/managed-by: platform-engineering
+spec:
+  description: Project for Cluster API managed Kubernetes clusters
+  sourceRepos:
+    - 'https://github.com/${{ values.repoOwner }}/k8s-cluster-*'
+  destinations:
+    - namespace: capi-clusters
+      server: https://kubernetes.default.svc
+    - namespace: capi-system
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: cluster.x-k8s.io
+      kind: '*'
+    - group: infrastructure.cluster.x-k8s.io
+      kind: '*'
+    - group: controlplane.cluster.x-k8s.io
+      kind: '*'
+    - group: bootstrap.cluster.x-k8s.io
+      kind: '*'
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: ''
+      kind: Namespace
+  orphanedResources:
+    warn: true
+  roles:
+    - name: platform-admin
+      description: Full admin access for platform engineering
+      policies:
+        - p, proj:kubernetes-clusters:platform-admin, applications, *, kubernetes-clusters/*, allow
+      groups:
+        - platform-engineering
+    - name: cluster-viewer
+      description: Read-only access for cluster owners
+      policies:
+        - p, proj:kubernetes-clusters:cluster-viewer, applications, get, kubernetes-clusters/*, allow
+        - p, proj:kubernetes-clusters:cluster-viewer, applications, sync, kubernetes-clusters/*, allow
+      groups:
+        - ${{ values.ownerTeam }}
+  signatureKeys: []

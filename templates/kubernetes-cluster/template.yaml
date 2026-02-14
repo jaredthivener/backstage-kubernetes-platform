@@ -1,0 +1,394 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kubernetes-cluster-provisioner
+  title: Provision Kubernetes Cluster
+  description: |
+    Provision a production-grade Kubernetes cluster via Cluster API on Azure (AKS),
+    AWS (EKS), or GCP (GKE). Clusters are deployed via GitOps (ArgoCD), integrated
+    with HashiCorp Vault for secrets, Azure AD (Entra ID) for identity, and
+    Prometheus for monitoring. Network policies enforce PCI-DSS compliance.
+  tags:
+    - kubernetes
+    - cluster-api
+    - infrastructure
+    - platform
+    - gitops
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    morgan-stanley.com/owner-squad: platform-engineering
+    morgan-stanley.com/compliance: pci-dss
+  links:
+    - title: Platform Engineering Docs
+      url: https://docs.internal.ms.com/platform/kubernetes
+      icon: docs
+    - title: Runbook
+      url: https://docs.internal.ms.com/platform/kubernetes/runbook
+      icon: dashboard
+spec:
+  owner: group:platform-engineering
+  type: infrastructure
+  lifecycle: production
+
+  # ---------------------------------------------------------------------------
+  # Parameters – multi-step wizard
+  # ---------------------------------------------------------------------------
+  parameters:
+    # ── Step 1: Cloud & Environment ──────────────────────────────────────────
+    - title: Cloud Provider & Environment
+      required:
+        - cloudProvider
+        - environment
+        - region
+      properties:
+        cloudProvider:
+          title: Cloud Service Provider
+          type: string
+          description: Target cloud for the Kubernetes cluster.
+          enum:
+            - azure
+            - aws
+            - gcp
+          enumNames:
+            - Azure (AKS via CAPZ)
+            - AWS (EKS via CAPA)
+            - GCP (GKE via CAPG)
+          ui:autofocus: true
+
+        environment:
+          title: Environment
+          type: string
+          description: Deployment environment tier.
+          enum:
+            - dev
+            - qa
+            - prod
+          enumNames:
+            - Development
+            - QA / Staging
+            - Production
+
+        region:
+          title: Region
+          type: string
+          description: Cloud region for the cluster.
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind: Location
+          # Fallback plain enum when catalog locations are not available
+          enum:
+            # Azure
+            - eastus2
+            - westus2
+            - westeurope
+            - southeastasia
+            # AWS
+            - us-east-1
+            - us-west-2
+            - eu-west-1
+            - ap-southeast-1
+            # GCP
+            - us-central1
+            - us-east4
+            - europe-west1
+            - asia-southeast1
+
+    # ── Step 2: Cluster Identity ─────────────────────────────────────────────
+    - title: Cluster Details
+      required:
+        - clusterName
+        - ownerTeam
+        - kubernetesVersion
+      properties:
+        clusterName:
+          title: Cluster Name
+          type: string
+          description: |
+            Lowercase alphanumeric name (max 24 chars). Will be prefixed with
+            the environment, e.g. dev-<name>.
+          pattern: '^[a-z][a-z0-9-]{2,23}$'
+          ui:autofocus: true
+          ui:help: 'Must start with a letter, 3-24 chars, lowercase alphanumeric and hyphens only.'
+
+        ownerTeam:
+          title: Owner Team
+          type: string
+          description: The team that owns this cluster (maps to Backstage Group).
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+        kubernetesVersion:
+          title: Kubernetes Version
+          type: string
+          description: Desired Kubernetes minor version.
+          default: '1.29'
+          enum:
+            - '1.28'
+            - '1.29'
+            - '1.30'
+            - '1.31'
+
+        costCenter:
+          title: Cost Center
+          type: string
+          description: Finance cost-center code for charge-back.
+          pattern: '^[A-Z]{2}[0-9]{4,8}$'
+          ui:help: 'Format: XX0000 (e.g. IT1234)'
+
+    # ── Step 3: Node Pool Sizing ─────────────────────────────────────────────
+    - title: Node Pool Configuration
+      required:
+        - nodePoolSize
+      properties:
+        nodePoolSize:
+          title: Node Pool Size
+          type: string
+          description: Pre-defined t-shirt size or custom.
+          default: medium
+          enum:
+            - small
+            - medium
+            - large
+            - custom
+          enumNames:
+            - 'Small  (3 nodes, 4 vCPU / 16 GB each)'
+            - 'Medium (5 nodes, 8 vCPU / 32 GB each)'
+            - 'Large  (10 nodes, 16 vCPU / 64 GB each)'
+            - 'Custom (specify below)'
+
+        customNodeCount:
+          title: Custom Node Count
+          type: integer
+          description: Number of worker nodes (only when Custom is selected).
+          minimum: 1
+          maximum: 100
+          ui:widget: range
+
+        customNodeCpu:
+          title: Custom vCPU per Node
+          type: integer
+          description: vCPU count per node.
+          enum:
+            - 2
+            - 4
+            - 8
+            - 16
+            - 32
+            - 48
+            - 64
+
+        customNodeMemoryGb:
+          title: Custom Memory (GB) per Node
+          type: integer
+          description: Memory in GB per node.
+          enum:
+            - 8
+            - 16
+            - 32
+            - 64
+            - 128
+            - 256
+
+        enableAutoScaling:
+          title: Enable Cluster Autoscaler
+          type: boolean
+          default: true
+
+        autoScalingMin:
+          title: Autoscaler Min Nodes
+          type: integer
+          default: 3
+          minimum: 1
+
+        autoScalingMax:
+          title: Autoscaler Max Nodes
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 200
+
+      dependencies:
+        nodePoolSize:
+          oneOf:
+            - properties:
+                nodePoolSize:
+                  const: custom
+              required:
+                - customNodeCount
+                - customNodeCpu
+                - customNodeMemoryGb
+            - properties:
+                nodePoolSize:
+                  enum:
+                    - small
+                    - medium
+                    - large
+
+    # ── Step 4: Add-ons ──────────────────────────────────────────────────────
+    - title: Cluster Add-ons
+      properties:
+        enableMonitoring:
+          title: Prometheus Monitoring Stack
+          type: boolean
+          default: true
+          description: Deploy kube-prometheus-stack with remote-write to central Prometheus.
+
+        enableIngress:
+          title: Ingress Controller (NGINX)
+          type: boolean
+          default: true
+          description: Deploy NGINX Ingress Controller with MS TLS certificates.
+
+        enableServiceMesh:
+          title: Service Mesh (Istio)
+          type: boolean
+          default: false
+          description: Deploy Istio service mesh with strict mTLS.
+
+        enableVaultIntegration:
+          title: HashiCorp Vault Integration
+          type: boolean
+          default: true
+          description: Deploy Vault Agent Injector and CSI driver for secrets.
+
+        enableNetworkPolicies:
+          title: PCI-DSS Network Policies
+          type: boolean
+          default: true
+          description: Deploy default-deny and PCI-DSS compliant network policies.
+
+        enableNamespaceOperator:
+          title: Namespace RBAC Operator
+          type: boolean
+          default: true
+          description: Deploy the custom namespace-operator for per-team RBAC.
+
+    # ── Step 5: Repository Details ───────────────────────────────────────────
+    - title: Repository Configuration
+      required:
+        - repoOwner
+      properties:
+        repoOwner:
+          title: GitHub Organization / Owner
+          type: string
+          default: morgan-stanley
+          description: GitHub organization that will own the GitOps repository.
+
+        repoVisibility:
+          title: Repository Visibility
+          type: string
+          default: internal
+          enum:
+            - internal
+            - private
+
+  # ---------------------------------------------------------------------------
+  # Steps
+  # ---------------------------------------------------------------------------
+  steps:
+    # ── 1. Fetch & render the skeleton ───────────────────────────────────────
+    - id: fetch-base
+      name: Render cluster manifests
+      action: fetch:template
+      input:
+        url: ./skeleton
+        targetPath: ./output
+        values:
+          clusterName: ${{ parameters.clusterName }}
+          environment: ${{ parameters.environment }}
+          cloudProvider: ${{ parameters.cloudProvider }}
+          region: ${{ parameters.region }}
+          ownerTeam: ${{ parameters.ownerTeam }}
+          kubernetesVersion: ${{ parameters.kubernetesVersion }}
+          costCenter: ${{ parameters.costCenter }}
+          nodePoolSize: ${{ parameters.nodePoolSize }}
+          customNodeCount: ${{ parameters.customNodeCount }}
+          customNodeCpu: ${{ parameters.customNodeCpu }}
+          customNodeMemoryGb: ${{ parameters.customNodeMemoryGb }}
+          enableAutoScaling: ${{ parameters.enableAutoScaling }}
+          autoScalingMin: ${{ parameters.autoScalingMin }}
+          autoScalingMax: ${{ parameters.autoScalingMax }}
+          enableMonitoring: ${{ parameters.enableMonitoring }}
+          enableIngress: ${{ parameters.enableIngress }}
+          enableServiceMesh: ${{ parameters.enableServiceMesh }}
+          enableVaultIntegration: ${{ parameters.enableVaultIntegration }}
+          enableNetworkPolicies: ${{ parameters.enableNetworkPolicies }}
+          enableNamespaceOperator: ${{ parameters.enableNamespaceOperator }}
+          repoOwner: ${{ parameters.repoOwner }}
+          repoVisibility: ${{ parameters.repoVisibility }}
+
+    # ── 2. Publish to GitHub ─────────────────────────────────────────────────
+    - id: publish-github
+      name: Publish GitOps repository
+      action: publish:github
+      input:
+        allowedHosts:
+          - github.com
+        repoUrl: github.com?owner=${{ parameters.repoOwner }}&repo=k8s-cluster-${{ parameters.environment }}-${{ parameters.clusterName }}
+        description: 'GitOps repo for Kubernetes cluster ${{ parameters.environment }}-${{ parameters.clusterName }} (${{ parameters.cloudProvider }} / ${{ parameters.region }})'
+        defaultBranch: main
+        repoVisibility: ${{ parameters.repoVisibility }}
+        requireCodeOwnerReviews: true
+        requiredStatusCheckContexts:
+          - ci/validate-manifests
+          - ci/policy-check
+        topics:
+          - kubernetes
+          - cluster-api
+          - gitops
+          - ${{ parameters.cloudProvider }}
+          - ${{ parameters.environment }}
+        collaborators:
+          - team: platform-engineering
+            access: admin
+          - team: ${{ parameters.ownerTeam }}
+            access: maintain
+
+    # ── 3. Register cluster in ArgoCD ────────────────────────────────────────
+    - id: register-argocd
+      name: Register in ArgoCD
+      action: argocd:create-resources
+      input:
+        appName: cluster-${{ parameters.environment }}-${{ parameters.clusterName }}
+        argoInstance: argocd-platform
+        projectName: kubernetes-clusters
+        namespace: argocd
+        repoUrl: ${{ steps['publish-github'].output.remoteUrl }}
+        path: /
+        revision: main
+
+    # ── 4. Register in Backstage catalog ─────────────────────────────────────
+    - id: register-catalog
+      name: Register in Backstage catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish-github'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  # ---------------------------------------------------------------------------
+  # Output
+  # ---------------------------------------------------------------------------
+  output:
+    links:
+      - title: GitOps Repository
+        url: ${{ steps['publish-github'].output.remoteUrl }}
+      - title: ArgoCD Application
+        url: https://argocd.internal.ms.com/applications/cluster-${{ parameters.environment }}-${{ parameters.clusterName }}
+      - title: Cluster in Backstage Catalog
+        entityRef: ${{ steps['register-catalog'].output.entityRef }}
+      - title: Grafana Dashboard
+        url: https://grafana.internal.ms.com/d/cluster-overview?var-cluster=${{ parameters.environment }}-${{ parameters.clusterName }}
+    text:
+      - title: Next Steps
+        content: |
+          Your cluster **${{ parameters.environment }}-${{ parameters.clusterName }}** is being
+          provisioned on **${{ parameters.cloudProvider }}** in **${{ parameters.region }}**.
+
+          ArgoCD will reconcile the Cluster API manifests. Provisioning typically
+          takes 10-15 minutes. Monitor progress in the ArgoCD dashboard.
+
+          DNS will be available at:
+          `*.${{ parameters.clusterName }}.${{ parameters.cloudProvider }}-${{ parameters.environment }}.ms.com`

@@ -1,0 +1,382 @@
+{%- if values.enableVaultIntegration %}
+# =============================================================================
+# HashiCorp Vault Integration
+# Deploys Vault Agent Injector and Secrets Store CSI Driver for
+# transparent secret injection into workload pods.
+# =============================================================================
+
+# ── Vault Agent Injector – HelmRelease ───────────────────────────────────────
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: hashicorp
+  namespace: vault
+  labels:
+    app.kubernetes.io/managed-by: gitops
+    morgan-stanley.com/environment: ${{ values.environment }}
+spec:
+  interval: 24h
+  url: https://helm.releases.hashicorp.com
+
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: vault
+  namespace: vault
+  labels:
+    app.kubernetes.io/managed-by: gitops
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/cloud-provider: ${{ values.cloudProvider }}
+    morgan-stanley.com/owner: ${{ values.ownerTeam }}
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/cluster: ${{ values.environment }}-${{ values.clusterName }}
+    morgan-stanley.com/pci-requirement: "3.4,3.5,6.2"
+spec:
+  interval: 1h
+  timeout: 10m
+  chart:
+    spec:
+      chart: vault
+      version: "0.28.x"
+      sourceRef:
+        kind: HelmRepository
+        name: hashicorp
+        namespace: vault
+      interval: 24h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  values:
+    # We run in external mode – injector connects to central Vault cluster
+    global:
+      enabled: true
+      tlsDisable: false
+
+    server:
+      enabled: false    # External Vault – no local server
+
+    injector:
+      enabled: true
+      replicas: 2
+      leaderElector:
+        enabled: true
+
+      agentDefaults:
+        cpuLimit: 500m
+        cpuRequest: 50m
+        memLimit: 256Mi
+        memRequest: 64Mi
+        template: map
+
+      # Security context
+      securityContext:
+        pod:
+          runAsNonRoot: true
+          runAsUser: 100
+          runAsGroup: 1000
+          fsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault
+        container:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+
+      webhook:
+        failurePolicy: Fail
+        matchPolicy: Equivalent
+        objectSelector:
+          matchLabels:
+            vault.hashicorp.com/agent-inject: "true"
+
+      # Pod anti-affinity for HA
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: vault-agent-injector
+              topologyKey: kubernetes.io/hostname
+
+      # External Vault address
+      externalVaultAddr: https://vault.internal.ms.com:8200
+
+      authPath: auth/kubernetes/${{ values.environment }}-${{ values.clusterName }}
+
+---
+# ── Secrets Store CSI Driver ────────────────────────────────────────────────
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: secrets-store-csi-driver
+  namespace: vault
+  labels:
+    app.kubernetes.io/managed-by: gitops
+spec:
+  interval: 24h
+  url: https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
+
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: secrets-store-csi-driver
+  namespace: vault
+  labels:
+    app.kubernetes.io/managed-by: gitops
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/cluster: ${{ values.environment }}-${{ values.clusterName }}
+spec:
+  interval: 1h
+  timeout: 10m
+  chart:
+    spec:
+      chart: secrets-store-csi-driver
+      version: "1.4.x"
+      sourceRef:
+        kind: HelmRepository
+        name: secrets-store-csi-driver
+        namespace: vault
+      interval: 24h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    syncSecret:
+      enabled: true
+    enableSecretRotation: true
+    rotationPollInterval: 120s
+    linux:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+
+---
+# ── Vault CSI Provider ──────────────────────────────────────────────────────
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: vault-csi-provider
+  namespace: vault
+  labels:
+    app.kubernetes.io/managed-by: gitops
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/compliance: pci-dss
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: vault
+      version: "0.28.x"
+      sourceRef:
+        kind: HelmRepository
+        name: hashicorp
+        namespace: vault
+      interval: 24h
+  values:
+    global:
+      enabled: true
+      tlsDisable: false
+    server:
+      enabled: false
+    injector:
+      enabled: false
+    csi:
+      enabled: true
+      daemonSet:
+        securityContext:
+          pod:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          container:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+      agent:
+        enabled: true
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+      extraArgs:
+        - -vault-addr=https://vault.internal.ms.com:8200
+        - -vault-tls-ca-cert=/vault/tls/ca.crt
+
+---
+# ── Vault Kubernetes Auth Backend Config ─────────────────────────────────────
+# Applied via a Kubernetes Job that configures the Vault auth method
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-auth-config
+  namespace: vault
+  labels:
+    app.kubernetes.io/managed-by: gitops
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: vault-auth-config
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: vault-auth-config
+          image: hashicorp/vault:1.15
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              # Enable Kubernetes auth backend for this cluster
+              vault auth enable -path=kubernetes/${{ values.environment }}-${{ values.clusterName }} kubernetes || true
+
+              # Configure the auth backend
+              vault write auth/kubernetes/${{ values.environment }}-${{ values.clusterName }}/config \
+                kubernetes_host="https://kubernetes.default.svc:443" \
+                token_reviewer_jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token \
+                kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+                issuer="https://kubernetes.default.svc.cluster.local"
+
+              # Create a default policy for this cluster
+              vault policy write k8s-${{ values.environment }}-${{ values.clusterName }}-default - <<EOF
+              path "secret/data/k8s/${{ values.environment }}-${{ values.clusterName }}/*" {
+                capabilities = ["read", "list"]
+              }
+              path "pki/issue/k8s-${{ values.environment }}-${{ values.clusterName }}" {
+                capabilities = ["create", "update"]
+              }
+              EOF
+
+              # Create a default auth role
+              vault write auth/kubernetes/${{ values.environment }}-${{ values.clusterName }}/role/default \
+                bound_service_account_names="*" \
+                bound_service_account_namespaces="*" \
+                policies="k8s-${{ values.environment }}-${{ values.clusterName }}-default" \
+                ttl=1h \
+                max_ttl=24h
+
+          env:
+            - name: VAULT_ADDR
+              value: https://vault.internal.ms.com:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-bootstrap-token
+                  key: token
+            - name: VAULT_CACERT
+              value: /vault/tls/ca.crt
+          volumeMounts:
+            - name: vault-tls
+              mountPath: /vault/tls
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: vault-tls
+          secret:
+            secretName: vault-tls-certs
+
+---
+# ── ServiceAccount for Vault auth config job ─────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-auth-config
+  namespace: vault
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+
+---
+# ── SecretProviderClass template (teams copy & adapt) ────────────────────────
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: vault-secrets-template
+  namespace: vault
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/description: "Template SecretProviderClass – teams clone this into their namespace"
+spec:
+  provider: vault
+  parameters:
+    vaultAddress: https://vault.internal.ms.com:8200
+    roleName: default
+    vaultAuthMountPath: kubernetes/${{ values.environment }}-${{ values.clusterName }}
+    vaultTLSConfig: '{"vaultCACertPath": "/vault/tls/ca.crt"}'
+    objects: |
+      - objectName: "example-secret"
+        secretPath: "secret/data/k8s/${{ values.environment }}-${{ values.clusterName }}/example"
+        secretKey: "value"
+  secretObjects:
+    - secretName: example-secret
+      type: Opaque
+      data:
+        - objectName: example-secret
+          key: value
+
+{%- endif %}

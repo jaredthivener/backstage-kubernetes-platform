@@ -1,0 +1,263 @@
+# =============================================================================
+# Cluster Drift Detection
+# Compares desired state in Git against actual cluster state every 6 hours.
+# Creates a GitHub issue and notifies Backstage if drift is detected.
+# =============================================================================
+name: Cluster Drift Detection
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # Every 6 hours
+  workflow_dispatch: {}       # Allow manual trigger
+
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+
+env:
+  CLUSTER_NAME: "${{ values.environment }}-${{ values.clusterName }}"
+  CLOUD_PROVIDER: "${{ values.cloudProvider }}"
+  ENVIRONMENT: "${{ values.environment }}"
+  REGION: "${{ values.region }}"
+  BACKSTAGE_API: "https://backstage.internal.ms.com/api"
+{%- if values.cloudProvider == "azure" %}
+  MGMT_CLUSTER_CONTEXT: "mgmt-azure"
+{%- elif values.cloudProvider == "aws" %}
+  MGMT_CLUSTER_CONTEXT: "mgmt-aws"
+{%- elif values.cloudProvider == "gcp" %}
+  MGMT_CLUSTER_CONTEXT: "mgmt-gcp"
+{%- endif %}
+
+jobs:
+  drift-check:
+    name: Detect Configuration Drift
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (desired state)
+        uses: actions/checkout@v4
+
+{%- if values.cloudProvider == "azure" %}
+
+      # ── Azure OIDC Authentication ──────────────────────────────────────────
+      - name: Azure OIDC Login
+        uses: azure/login@v2
+        with:
+          client-id: {% raw %}${{ secrets.AZURE_OIDC_CLIENT_ID }}{% endraw %}
+          tenant-id: {% raw %}${{ secrets.AZURE_TENANT_ID }}{% endraw %}
+          subscription-id: {% raw %}${{ secrets.AZURE_SUBSCRIPTION_ID }}{% endraw %}
+
+      - name: Get management cluster credentials
+        run: |
+          az aks get-credentials \
+            --resource-group rg-mgmt-platform \
+            --name aks-mgmt-cluster \
+            --overwrite-existing
+{%- elif values.cloudProvider == "aws" %}
+
+      # ── AWS OIDC Authentication ────────────────────────────────────────────
+      - name: Configure AWS OIDC Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: {% raw %}${{ secrets.AWS_OIDC_ROLE_ARN }}{% endraw %}
+          aws-region: us-east-1
+          role-session-name: github-actions-drift-detection
+
+      - name: Get management cluster credentials
+        run: |
+          aws eks update-kubeconfig \
+            --name eks-mgmt-cluster \
+            --region us-east-1 \
+            --alias mgmt-aws
+{%- elif values.cloudProvider == "gcp" %}
+
+      # ── GCP OIDC Authentication ────────────────────────────────────────────
+      - name: Authenticate to GCP via Workload Identity
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: {% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}{% endraw %}
+          service_account: {% raw %}${{ secrets.GCP_SERVICE_ACCOUNT }}{% endraw %}
+
+      - name: Get management cluster credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: gke-mgmt-cluster
+          location: us-central1
+          project_id: {% raw %}${{ secrets.GCP_PROJECT_ID }}{% endraw %}
+{%- endif %}
+
+      - name: Install diff tooling
+        run: |
+          curl -sSL https://github.com/homeport/dyff/releases/download/v1.7.1/dyff_1.7.1_linux_amd64.tar.gz \
+            | tar xz -C /usr/local/bin
+
+      - name: Fetch live cluster state
+        id: live
+        run: |
+          mkdir -p /tmp/live
+
+          # Fetch Cluster resource
+          kubectl get cluster ${{ values.environment }}-${{ values.clusterName }} \
+            -n capi-clusters -o yaml \
+            | kubectl neat \
+            > /tmp/live/cluster.yaml 2>/dev/null || echo "Cluster resource not found" > /tmp/live/cluster.yaml
+
+          # Fetch infrastructure-specific resource
+{%- if values.cloudProvider == "azure" %}
+          kubectl get azuremanagedcontrolplane ${{ values.environment }}-${{ values.clusterName }} \
+            -n capi-clusters -o yaml \
+            | kubectl neat \
+            > /tmp/live/infra.yaml 2>/dev/null || true
+{%- elif values.cloudProvider == "aws" %}
+          kubectl get awsmanagedcontrolplane ${{ values.environment }}-${{ values.clusterName }} \
+            -n capi-clusters -o yaml \
+            | kubectl neat \
+            > /tmp/live/infra.yaml 2>/dev/null || true
+{%- elif values.cloudProvider == "gcp" %}
+          kubectl get gcpmanagedcontrolplane ${{ values.environment }}-${{ values.clusterName }} \
+            -n capi-clusters -o yaml \
+            | kubectl neat \
+            > /tmp/live/infra.yaml 2>/dev/null || true
+{%- endif %}
+
+          # Fetch machine pools
+          kubectl get machinepools -n capi-clusters \
+            -l cluster.x-k8s.io/cluster-name=${{ values.environment }}-${{ values.clusterName }} \
+            -o yaml \
+            | kubectl neat \
+            > /tmp/live/machinepools.yaml 2>/dev/null || true
+
+      - name: Compare desired vs actual state
+        id: drift
+        run: |
+          DRIFT_FOUND=false
+          DRIFT_REPORT=""
+
+          # Compare cluster definition
+          if [ -f "/tmp/live/cluster.yaml" ] && ! grep -q "not found" /tmp/live/cluster.yaml; then
+            CLUSTER_DIFF=$(dyff between cluster-definition.yaml /tmp/live/cluster.yaml --omit-header 2>&1) || true
+            if [ -n "$CLUSTER_DIFF" ]; then
+              DRIFT_FOUND=true
+              DRIFT_REPORT="${DRIFT_REPORT}\n### Cluster Definition Drift\n\`\`\`diff\n${CLUSTER_DIFF}\n\`\`\`\n"
+            fi
+          else
+            DRIFT_FOUND=true
+            DRIFT_REPORT="${DRIFT_REPORT}\n### ⚠️ Cluster resource not found on management cluster\n"
+          fi
+
+          # Check cluster conditions
+          CLUSTER_READY=$(kubectl get cluster ${{ values.environment }}-${{ values.clusterName }} \
+            -n capi-clusters \
+            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
+
+          INFRA_READY=$(kubectl get cluster ${{ values.environment }}-${{ values.clusterName }} \
+            -n capi-clusters \
+            -o jsonpath='{.status.conditions[?(@.type=="InfrastructureReady")].status}' 2>/dev/null || echo "Unknown")
+
+          DRIFT_REPORT="${DRIFT_REPORT}\n### Cluster Health\n| Condition | Status |\n|-----------|--------|\n| Ready | ${CLUSTER_READY} |\n| InfrastructureReady | ${INFRA_READY} |\n"
+
+          echo "drift_found=${DRIFT_FOUND}" >> "$GITHUB_OUTPUT"
+          echo "drift_report<<EOF" >> "$GITHUB_OUTPUT"
+          echo -e "$DRIFT_REPORT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "cluster_ready=${CLUSTER_READY}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub issue on drift
+        if: steps.drift.outputs.drift_found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const report = `{% raw %}${{ steps.drift.outputs.drift_report }}{% endraw %}`;
+            const title = `🔄 Drift detected: ${{ values.environment }}-${{ values.clusterName }}`;
+
+            // Check for existing open drift issue
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'drift-detected',
+            });
+            const existing = issues.find(i => i.title === title);
+
+            const body = `## Configuration Drift Detected
+
+            **Cluster:** \`${{ values.environment }}-${{ values.clusterName }}\`
+            **Provider:** \`${{ values.cloudProvider | upper }}\`
+            **Region:** \`${{ values.region }}\`
+            **Detected at:** \`{% raw %}${{ github.event.repository.updated_at }}{% endraw %}\`
+            **Workflow run:** [View logs]({% raw %}${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}{% endraw %})
+
+            ${report}
+
+            ## Remediation
+
+            1. **Auto-heal via ArgoCD**: Check the [ArgoCD application](https://argocd.internal.ms.com/applications/cluster-${{ values.environment }}-${{ values.clusterName }}) for sync status
+            2. **Manual sync**: Trigger a manual ArgoCD sync if self-heal is disabled
+            3. **Investigate**: If drift persists, check for manual changes made outside GitOps
+
+            /cc @${{ values.ownerTeam }}
+            `.replace(/^            /gm, '');
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['drift-detected', 'platform', '${{ values.cloudProvider }}'],
+                assignees: [],
+              });
+            }
+
+      - name: Notify Backstage on drift
+        if: steps.drift.outputs.drift_found == 'true'
+        run: |
+          curl -s -X POST "${BACKSTAGE_API}/notifications" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer {% raw %}${{ secrets.BACKSTAGE_TOKEN }}{% endraw %}" \
+            -d "{
+              \"recipients\": {\"type\": \"entity\", \"entityRef\": \"group:default/${{ values.ownerTeam }}\"},
+              \"payload\": {
+                \"title\": \"🔄 Drift detected: ${{ values.environment }}-${{ values.clusterName }}\",
+                \"description\": \"Configuration drift detected between Git desired state and live cluster on ${{ values.cloudProvider | upper }} (${{ values.region }}). A GitHub issue has been created.\",
+                \"severity\": \"high\",
+                \"link\": \"{% raw %}${{ github.server_url }}/${{ github.repository }}/issues{% endraw %}\",
+                \"topic\": \"kubernetes-cluster-drift\"
+              }
+            }"
+
+      - name: Close drift issue if no drift
+        if: steps.drift.outputs.drift_found == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🔄 Drift detected: ${{ values.environment }}-${{ values.clusterName }}`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'drift-detected',
+            });
+            const existing = issues.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: '✅ Drift resolved — desired state matches live cluster state.',
+              });
+            }

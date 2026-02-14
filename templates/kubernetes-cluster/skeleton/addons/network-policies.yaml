@@ -1,0 +1,563 @@
+{%- if values.enableNetworkPolicies %}
+# =============================================================================
+# PCI-DSS Compliant Network Policies
+# =============================================================================
+# Implements PCI-DSS v4.0 requirements:
+#   - Req 1.2: Restrict inbound/outbound to only necessary traffic
+#   - Req 1.3: Prohibit direct public access between internet and CDE
+#   - Req 1.4: Segment the cardholder data environment from other networks
+# =============================================================================
+
+# ── 1. Default Deny All – every namespace starts with zero trust ─────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-ingress
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/compliance: pci-dss
+    morgan-stanley.com/policy-type: default-deny
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.2,1.3"
+    morgan-stanley.com/description: "Default deny all ingress traffic – PCI-DSS baseline"
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-egress
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/compliance: pci-dss
+    morgan-stanley.com/policy-type: default-deny
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.2,1.3"
+    morgan-stanley.com/description: "Default deny all egress traffic – PCI-DSS baseline"
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+
+---
+# ── 2. Allow DNS resolution (required for all pods) ─────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/compliance: pci-dss
+    morgan-stanley.com/policy-type: allow-dns
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.2"
+    morgan-stanley.com/description: "Allow DNS resolution to kube-dns"
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# ── 3. kube-system namespace policies ────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-ingress
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-ingress
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.2"
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: kube-dns
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# ── 4. Monitoring namespace – allow Prometheus scraping ──────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-ingress
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.2"
+    morgan-stanley.com/description: "Allow Prometheus to scrape all namespaces"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  policyTypes:
+    - Egress
+  egress:
+    # Scrape targets across all namespaces
+    - ports:
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 9100
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8443
+    # Remote write to central Prometheus
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 443
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-alertmanager
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alertmanager
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9093
+  egress:
+    # Alertmanager peer mesh
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alertmanager
+      ports:
+        - protocol: TCP
+          port: 9094
+        - protocol: UDP
+          port: 9094
+    # Webhook / PagerDuty / Slack notifications
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 443
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# ── 5. Vault namespace policies ──────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: vault
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-vault-agent-injector
+  namespace: vault
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.2,1.3"
+    morgan-stanley.com/description: "Allow Vault agent injector webhook traffic"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault-agent-injector
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Webhook calls from API server
+    - ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 443
+  egress:
+    # Connect to external Vault server
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 8200
+    # DNS resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# ── 6. Ingress namespace policies ────────────────────────────────────────────
+{%- if values.enableIngress %}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.2,1.3,1.4"
+    morgan-stanley.com/description: "Allow ingress controller to receive external traffic and route to backends"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+      app.kubernetes.io/component: controller
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # External load balancer traffic (HTTP/HTTPS only)
+    - ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+  egress:
+    # Route to backend pods in all namespaces
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8443
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{%- endif %}
+
+---
+# ── 7. ArgoCD namespace policies ────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-argocd
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: argocd
+  policyTypes:
+    - Egress
+  egress:
+    # Git repo access
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 169.254.169.254/32   # Block metadata endpoint
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 22
+    # Kubernetes API
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 6443
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# ── 8. Workload namespace template (applied by namespace-operator) ───────────
+# This is a template – the namespace-operator applies it to every team namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workload-default-deny
+  namespace: "{{ "{{" }} namespace {{ "}}" }}"
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+    morgan-stanley.com/policy-type: workload-default
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.2,1.3,1.4"
+    morgan-stanley.com/description: "Default deny with explicit allow for essential services"
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workload-allow-essential-egress
+  namespace: "{{ "{{" }} namespace {{ "}}" }}"
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.2"
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Vault for secrets
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: vault
+      ports:
+        - protocol: TCP
+          port: 8200
+    # Same namespace (intra-service communication)
+    - to:
+        - podSelector: {}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workload-allow-prometheus-scrape
+  namespace: "{{ "{{" }} namespace {{ "}}" }}"
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+spec:
+  podSelector:
+    matchLabels:
+      prometheus.io/scrape: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workload-allow-ingress
+  namespace: "{{ "{{" }} namespace {{ "}}" }}"
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/pci-requirement: "1.3,1.4"
+spec:
+  podSelector:
+    matchLabels:
+      morgan-stanley.com/ingress-enabled: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8443
+
+{%- endif %}

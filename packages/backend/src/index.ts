@@ -1,65 +1,76 @@
 /*
- * Hi!
+ * Morgan Stanley KaaS Platform - Backend
  *
- * Note that this is an EXAMPLE Backstage backend. Please check the README.
- *
- * Happy hacking!
+ * This is the main backend entry point for the KaaS Backstage instance.
+ * It configures all plugins needed for Kubernetes as a Service operations.
  */
 
 import { createBackend } from '@backstage/backend-defaults';
 
 const backend = createBackend();
 
+// ============================================================================
+// Core Plugins
+// ============================================================================
 backend.add(import('@backstage/plugin-app-backend'));
 backend.add(import('@backstage/plugin-proxy-backend'));
 
-// scaffolder plugin
+// ============================================================================
+// Scaffolder - Template engine for cluster provisioning & Day 2 ops
+// ============================================================================
 backend.add(import('@backstage/plugin-scaffolder-backend'));
 backend.add(import('@backstage/plugin-scaffolder-backend-module-github'));
 backend.add(
   import('@backstage/plugin-scaffolder-backend-module-notifications'),
 );
 
-// techdocs plugin
+// ============================================================================
+// TechDocs - Documentation
+// ============================================================================
 backend.add(import('@backstage/plugin-techdocs-backend'));
 
-// auth plugin
+// ============================================================================
+// Authentication - Microsoft Entra ID (Azure AD)
+// ============================================================================
 backend.add(import('@backstage/plugin-auth-backend'));
-// See https://backstage.io/docs/backend-system/building-backends/migrating#the-auth-plugin
+// Guest provider for local development
 backend.add(import('@backstage/plugin-auth-backend-module-guest-provider'));
-// See https://backstage.io/docs/auth/guest/provider
+// Microsoft Entra ID provider for production SSO
+backend.add(import('@backstage/plugin-auth-backend-module-microsoft-provider'));
 
-// catalog plugin
+// ============================================================================
+// Catalog - Service catalog with Kubernetes cluster resources
+// ============================================================================
 backend.add(import('@backstage/plugin-catalog-backend'));
 backend.add(
   import('@backstage/plugin-catalog-backend-module-scaffolder-entity-model'),
 );
-
-// See https://backstage.io/docs/features/software-catalog/configuration#subscribing-to-catalog-errors
 backend.add(import('@backstage/plugin-catalog-backend-module-logs'));
 
-// permission plugin
+// ============================================================================
+// Permissions - RBAC authorization
+// ============================================================================
 backend.add(import('@backstage/plugin-permission-backend'));
-// See https://backstage.io/docs/permissions/getting-started for how to create your own permission policy
 backend.add(
   import('@backstage/plugin-permission-backend-module-allow-all-policy'),
 );
 
-// search plugin
+// ============================================================================
+// Search - Full-text search across catalog, techdocs
+// ============================================================================
 backend.add(import('@backstage/plugin-search-backend'));
-
-// search engine
-// See https://backstage.io/docs/features/search/search-engines
 backend.add(import('@backstage/plugin-search-backend-module-pg'));
-
-// search collators
 backend.add(import('@backstage/plugin-search-backend-module-catalog'));
 backend.add(import('@backstage/plugin-search-backend-module-techdocs'));
 
-// kubernetes plugin
+// ============================================================================
+// Kubernetes - Multi-cluster visibility
+// ============================================================================
 backend.add(import('@backstage/plugin-kubernetes-backend'));
 
-// notifications and signals plugins
+// ============================================================================
+// Notifications & Signals - Real-time updates
+// ============================================================================
 backend.add(import('@backstage/plugin-notifications-backend'));
 backend.add(import('@backstage/plugin-signals-backend'));
 

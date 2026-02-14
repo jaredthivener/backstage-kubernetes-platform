@@ -1,0 +1,242 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kubernetes-cluster-destroy
+  title: Decommission Kubernetes Cluster
+  description: |
+    Decommission and destroy an existing Kubernetes cluster. This template
+    creates a pull request to remove the cluster's CAPI manifests from the
+    GitOps repository and deregisters the cluster from the Backstage catalog.
+    Safeguards include confirmation by typing the cluster name, optional
+    workload draining, and pre-destroy backups.
+  tags:
+    - kubernetes
+    - cluster-api
+    - day2
+    - decommission
+    - destroy
+    - gitops
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    morgan-stanley.com/owner-squad: platform-engineering
+    morgan-stanley.com/compliance: pci-dss
+  links:
+    - title: Decommission Runbook
+      url: https://docs.internal.ms.com/platform/kubernetes/decommission
+      icon: docs
+    - title: Data Retention Policy
+      url: https://docs.internal.ms.com/platform/policies/data-retention
+      icon: dashboard
+spec:
+  owner: group:platform-engineering
+  type: infrastructure
+  lifecycle: production
+
+  # ---------------------------------------------------------------------------
+  # Parameters – multi-step wizard
+  # ---------------------------------------------------------------------------
+  parameters:
+    # ── Step 1: Select Cluster ───────────────────────────────────────────────
+    - title: Select Cluster to Decommission
+      required:
+        - clusterRef
+      properties:
+        clusterRef:
+          title: Target Cluster
+          type: string
+          description: Select the Kubernetes cluster to decommission from the catalog.
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind: Resource
+              spec.type: kubernetes-cluster
+            defaultKind: Resource
+          ui:autofocus: true
+
+    # ── Step 2: Safety Checks ────────────────────────────────────────────────
+    - title: Safety Checks & Options
+      required:
+        - confirmClusterName
+      properties:
+        confirmClusterName:
+          title: Confirm Cluster Name
+          type: string
+          description: |
+            Type the full cluster name exactly to confirm destruction.
+            This action is irreversible once the PR is merged.
+          ui:autofocus: true
+          ui:help: 'Must match the selected cluster name exactly.'
+
+        drainWorkloads:
+          title: Drain Workloads Before Destroy
+          type: boolean
+          default: true
+          description: |
+            Gracefully drain all workloads (Deployments, StatefulSets, DaemonSets)
+            before removing the cluster nodes. Recommended for production.
+
+        createBackup:
+          title: Create Backup Before Destroy
+          type: boolean
+          default: true
+          description: |
+            Trigger a Velero backup of all cluster resources and persistent
+            volumes before decommissioning. Backups are retained per the
+            data retention policy (90 days).
+
+        backupRetentionDays:
+          title: Backup Retention (Days)
+          type: integer
+          default: 90
+          minimum: 30
+          maximum: 365
+          description: Number of days to retain the pre-destroy backup.
+
+        deregisterDns:
+          title: Remove DNS Records
+          type: boolean
+          default: true
+          description: |
+            Remove all DNS records associated with this cluster
+            (e.g., *.cluster.az-dev.ms.com).
+
+        deregisterFromCatalog:
+          title: Deregister from Backstage Catalog
+          type: boolean
+          default: true
+          description: Remove the cluster entity from the Backstage software catalog.
+
+    # ── Step 3: Confirmation ─────────────────────────────────────────────────
+    - title: Final Review
+      required:
+        - prBranch
+      properties:
+        prBranch:
+          title: Pull Request Branch Name
+          type: string
+          default: destroy/cluster-decommission
+          description: Branch name for the decommission pull request.
+          pattern: '^[a-z0-9][a-z0-9/_-]{2,60}$'
+
+        justification:
+          title: Justification for Decommission
+          type: string
+          description: |
+            Reason for decommissioning. Required for audit trail and
+            change management records.
+          ui:widget: textarea
+          ui:options:
+            rows: 4
+
+  # ---------------------------------------------------------------------------
+  # Steps
+  # ---------------------------------------------------------------------------
+  steps:
+    # ── 1. Fetch cluster info from catalog ───────────────────────────────────
+    - id: catalog-fetch
+      name: Fetch cluster details from catalog
+      action: catalog:fetch
+      input:
+        entityRef: ${{ parameters.clusterRef }}
+
+    # ── 2. Validate confirmation matches cluster name ────────────────────────
+    - id: validate-name
+      name: Validate cluster name confirmation
+      action: debug:log
+      input:
+        message: |
+          Cluster decommission requested for: ${{ parameters.clusterRef }}
+          Confirmation provided: ${{ parameters.confirmClusterName }}
+          Drain workloads: ${{ parameters.drainWorkloads }}
+          Create backup: ${{ parameters.createBackup }}
+          Backup retention: ${{ parameters.backupRetentionDays }} days
+
+    # ── 3. Create Velero backup (if requested) ───────────────────────────────
+    - id: fetch-template
+      name: Render decommission manifests
+      action: fetch:template
+      input:
+        url: ./skeleton
+        targetPath: ./destroy-patch
+        values:
+          clusterRef: ${{ parameters.clusterRef }}
+          confirmClusterName: ${{ parameters.confirmClusterName }}
+          drainWorkloads: ${{ parameters.drainWorkloads }}
+          createBackup: ${{ parameters.createBackup }}
+          backupRetentionDays: ${{ parameters.backupRetentionDays }}
+          deregisterDns: ${{ parameters.deregisterDns }}
+          deregisterFromCatalog: ${{ parameters.deregisterFromCatalog }}
+          justification: ${{ parameters.justification }}
+
+    # ── 4. Open PR to remove cluster manifests ───────────────────────────────
+    - id: publish-pr
+      name: Open decommission pull request
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=morgan-stanley&repo=k8s-cluster-${{ steps['catalog-fetch'].output.entity.metadata.annotations['morgan-stanley.com/gitops-repo'] }}
+        branchName: ${{ parameters.prBranch }}
+        title: 'chore(destroy): Decommission cluster ${{ parameters.clusterRef }}'
+        description: |
+          ## Cluster Decommission Request
+
+          > **⚠️ DESTRUCTIVE ACTION** — Merging this PR will permanently destroy
+          > the cluster and all associated resources.
+
+          | Field | Value |
+          |-------|-------|
+          | **Cluster** | `${{ parameters.clusterRef }}` |
+          | **Confirmation** | `${{ parameters.confirmClusterName }}` |
+          | **Drain Workloads** | `${{ parameters.drainWorkloads }}` |
+          | **Pre-Destroy Backup** | `${{ parameters.createBackup }}` |
+          | **Backup Retention** | `${{ parameters.backupRetentionDays }} days` |
+          | **Remove DNS** | `${{ parameters.deregisterDns }}` |
+          | **Deregister Catalog** | `${{ parameters.deregisterFromCatalog }}` |
+
+          ### Justification
+          ${{ parameters.justification }}
+
+          ### Checklist
+          - [ ] All workload teams have been notified
+          - [ ] Data has been exported or backed up
+          - [ ] DNS consumers have been updated
+          - [ ] Change management ticket approved
+
+          ---
+          _Opened by Backstage Software Template `kubernetes-cluster-destroy`._
+        sourcePath: ./destroy-patch
+        targetPath: /
+
+    # ── 5. Deregister from Backstage catalog ─────────────────────────────────
+    - id: deregister-catalog
+      name: Deregister from Backstage catalog
+      if: ${{ parameters.deregisterFromCatalog }}
+      action: catalog:deregister
+      input:
+        entityRef: ${{ parameters.clusterRef }}
+
+  # ---------------------------------------------------------------------------
+  # Output
+  # ---------------------------------------------------------------------------
+  output:
+    links:
+      - title: Decommission Pull Request
+        url: ${{ steps['publish-pr'].output.remoteUrl }}
+      - title: Cluster in Backstage Catalog
+        entityRef: ${{ parameters.clusterRef }}
+      - title: ArgoCD Application
+        url: https://argocd.internal.ms.com/applications/${{ parameters.clusterRef }}
+    text:
+      - title: Next Steps
+        content: |
+          A pull request has been opened to decommission cluster
+          **${{ parameters.clusterRef }}**.
+
+          **This is a destructive operation.** Please ensure:
+
+          1. The PR is reviewed by at least **2 platform engineers**.
+          2. All workload teams have been notified and migrated.
+          3. The change management ticket is approved.
+          4. Once merged, ArgoCD will begin tearing down the cluster.
+          5. Teardown typically takes 15-30 minutes depending on cluster size.
+
+          ${{ 'A Velero backup has been scheduled and will be retained for ' + parameters.backupRetentionDays + ' days.' if parameters.createBackup else 'No backup was requested — ensure data has been manually exported.' }}

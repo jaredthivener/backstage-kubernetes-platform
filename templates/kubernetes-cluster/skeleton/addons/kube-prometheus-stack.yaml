@@ -1,0 +1,380 @@
+{%- if values.enableMonitoring %}
+# =============================================================================
+# kube-prometheus-stack – HelmRelease (Flux v2 compatible)
+# Deploys Prometheus, Alertmanager, Grafana Agent, and kube-state-metrics
+# with remote-write to Morgan Stanley's central Prometheus instance.
+# =============================================================================
+
+{%- if values.cloudProvider == "azure" %}
+  {%- if values.environment == "dev" %}
+    {%- set dnsSuffix = "az-dev.ms.com" %}
+  {%- elif values.environment == "qa" %}
+    {%- set dnsSuffix = "az-qa.ms.com" %}
+  {%- else %}
+    {%- set dnsSuffix = "az.ms.com" %}
+  {%- endif %}
+{%- elif values.cloudProvider == "aws" %}
+  {%- if values.environment == "dev" %}
+    {%- set dnsSuffix = "aws-dev.ms.com" %}
+  {%- elif values.environment == "qa" %}
+    {%- set dnsSuffix = "aws-qa.ms.com" %}
+  {%- else %}
+    {%- set dnsSuffix = "aws.ms.com" %}
+  {%- endif %}
+{%- elif values.cloudProvider == "gcp" %}
+  {%- if values.environment == "dev" %}
+    {%- set dnsSuffix = "gcp-dev.ms.com" %}
+  {%- elif values.environment == "qa" %}
+    {%- set dnsSuffix = "gcp-qa.ms.com" %}
+  {%- else %}
+    {%- set dnsSuffix = "gcp.ms.com" %}
+  {%- endif %}
+{%- endif %}
+
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: prometheus-community
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/managed-by: gitops
+    morgan-stanley.com/environment: ${{ values.environment }}
+spec:
+  interval: 24h
+  url: https://prometheus-community.github.io/helm-charts
+
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/managed-by: gitops
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/cloud-provider: ${{ values.cloudProvider }}
+    morgan-stanley.com/owner: ${{ values.ownerTeam }}
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    morgan-stanley.com/cluster: ${{ values.environment }}-${{ values.clusterName }}
+spec:
+  interval: 1h
+  timeout: 15m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: "62.x"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: monitoring
+      interval: 24h
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+    cleanupOnFail: true
+  values:
+    # ── Global ───────────────────────────────────────────────────────────────
+    fullnameOverride: prometheus
+
+    global:
+      rbac:
+        create: true
+        pspEnabled: false
+
+    # ── Prometheus ───────────────────────────────────────────────────────────
+    prometheus:
+      prometheusSpec:
+        replicas: 2
+        retention: 6h                  # short local retention; data goes to central
+        retentionSize: 10GB
+        scrapeInterval: 30s
+        evaluationInterval: 30s
+        walCompression: true
+        enableFeatures:
+          - remote-write-receiver
+
+        # ── Remote Write to Central Prometheus ───────────────────────────────
+        remoteWrite:
+          - url: https://prometheus-central.internal.ms.com/api/v1/write
+            name: ms-central-prometheus
+            writeRelabelConfigs:
+              - sourceLabels: [__name__]
+                action: keep
+                regex: "(container_.*|kube_.*|node_.*|up|process_.*|go_.*)"
+            queueConfig:
+              capacity: 10000
+              maxShards: 30
+              minShards: 1
+              maxSamplesPerSend: 5000
+              batchSendDeadline: 30s
+              minBackoff: 1s
+              maxBackoff: 5m
+            tlsConfig:
+              certFile: /etc/prometheus/certs/tls.crt
+              keyFile: /etc/prometheus/certs/tls.key
+              caFile: /etc/prometheus/certs/ca.crt
+              insecureSkipVerify: false
+            headers:
+              X-MS-Cluster: ${{ values.environment }}-${{ values.clusterName }}
+              X-MS-Environment: ${{ values.environment }}
+              X-MS-CloudProvider: ${{ values.cloudProvider }}
+              X-MS-Region: ${{ values.region }}
+
+        # ── External labels added to every metric ────────────────────────────
+        externalLabels:
+          cluster: ${{ values.environment }}-${{ values.clusterName }}
+          environment: ${{ values.environment }}
+          cloud_provider: ${{ values.cloudProvider }}
+          region: ${{ values.region }}
+          owner: ${{ values.ownerTeam }}
+          compliance: pci-dss
+
+        # ── Storage ──────────────────────────────────────────────────────────
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+
+        # ── Security ─────────────────────────────────────────────────────────
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          fsGroup: 65534
+          seccompProfile:
+            type: RuntimeDefault
+
+        # ── Pod Anti-Affinity (HA) ───────────────────────────────────────────
+        podAntiAffinity: hard
+
+        # ── Resource limits ──────────────────────────────────────────────────
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 8Gi
+
+        # ── Service monitors for platform components ─────────────────────────
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+
+        # ── Vault TLS certificates ───────────────────────────────────────────
+        volumes:
+          - name: prom-tls
+            secret:
+              secretName: prometheus-remote-write-tls
+        volumeMounts:
+          - name: prom-tls
+            mountPath: /etc/prometheus/certs
+            readOnly: true
+
+      # ── Prometheus service ─────────────────────────────────────────────────
+      service:
+        type: ClusterIP
+
+    # ── Alertmanager ─────────────────────────────────────────────────────────
+    alertmanager:
+      alertmanagerSpec:
+        replicas: 2
+        retention: 120h
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          seccompProfile:
+            type: RuntimeDefault
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      config:
+        global:
+          resolve_timeout: 5m
+          slack_api_url_file: /etc/alertmanager/secrets/slack-webhook-url
+        route:
+          receiver: "null"
+          group_by:
+            - alertname
+            - namespace
+            - severity
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 4h
+          routes:
+            - receiver: pagerduty-critical
+              match:
+                severity: critical
+              continue: true
+            - receiver: slack-warnings
+              match:
+                severity: warning
+        receivers:
+          - name: "null"
+          - name: pagerduty-critical
+            pagerduty_configs:
+              - service_key_file: /etc/alertmanager/secrets/pagerduty-key
+                description: "{{ .GroupLabels.alertname }} on {{ .GroupLabels.cluster }}"
+          - name: slack-warnings
+            slack_configs:
+              - channel: "#platform-alerts"
+                send_resolved: true
+                title: '{{ "{{" }} .GroupLabels.alertname {{ "}}" }}'
+                text: 'Cluster: ${{ values.environment }}-${{ values.clusterName }} | {{ "{{" }} .CommonAnnotations.summary {{ "}}" }}'
+
+    # ── Grafana (disabled – using central Grafana) ───────────────────────────
+    grafana:
+      enabled: false
+      forceDeployDatasources: true
+      forceDeployDashboards: true
+      sidecar:
+        datasources:
+          enabled: true
+
+    # ── kube-state-metrics ───────────────────────────────────────────────────
+    kube-state-metrics:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+
+    # ── node-exporter ────────────────────────────────────────────────────────
+    prometheus-node-exporter:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+
+    # ── Default rules ────────────────────────────────────────────────────────
+    defaultRules:
+      create: true
+      rules:
+        alertmanager: true
+        etcd: true
+        configReloaders: true
+        general: true
+        k8s: true
+        kubeApiserverAvailability: true
+        kubeApiserverSlos: true
+        kubeControllerManager: true
+        kubelet: true
+        kubeProxy: true
+        kubePrometheusGeneral: true
+        kubePrometheusNodeRecording: true
+        kubernetesApps: true
+        kubernetesResources: true
+        kubernetesStorage: true
+        kubernetesSystem: true
+        kubeSchedulerAlerting: true
+        kubeSchedulerRecording: true
+        kubeStateMetrics: true
+        network: true
+        node: true
+        nodeExporterAlerting: true
+        nodeExporterRecording: true
+        prometheus: true
+        prometheusOperator: true
+
+---
+# ── ServiceMonitor for Cluster API controllers ──────────────────────────────
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: capi-controllers
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - capi-system
+      - capi-kubeadm-bootstrap-system
+      - capi-kubeadm-control-plane-system
+{%- if values.cloudProvider == "azure" %}
+      - capz-system
+{%- elif values.cloudProvider == "aws" %}
+      - capa-system
+{%- elif values.cloudProvider == "gcp" %}
+      - capg-system
+{%- endif %}
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  endpoints:
+    - port: https
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+      interval: 30s
+
+---
+# ── PrometheusRule – Custom alerts for K8s platform ─────────────────────────
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubernetes-platform-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kubernetes-platform
+    morgan-stanley.com/environment: ${{ values.environment }}
+    prometheus: kube-prometheus-stack
+spec:
+  groups:
+    - name: kubernetes-platform.rules
+      rules:
+        - alert: ClusterProvisioningStuck
+          expr: |
+            capi_cluster_status_phase{phase!="Provisioned"} == 1
+            and on(cluster_name)
+            (time() - capi_cluster_status_phase_transition_time) > 1800
+          for: 5m
+          labels:
+            severity: critical
+            team: platform-engineering
+          annotations:
+            summary: "Cluster {{ $labels.cluster_name }} stuck in {{ $labels.phase }} for >30m"
+            runbook_url: "https://docs.internal.ms.com/platform/kubernetes/runbook#cluster-stuck"
+
+        - alert: NodePoolScalingFailed
+          expr: |
+            kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 10m
+          labels:
+            severity: warning
+            team: platform-engineering
+          annotations:
+            summary: "Node {{ $labels.node }} is not Ready for >10m"
+            runbook_url: "https://docs.internal.ms.com/platform/kubernetes/runbook#node-not-ready"
+
+        - alert: RemoteWriteFailure
+          expr: |
+            rate(prometheus_remote_storage_failed_samples_total[5m]) > 0
+          for: 15m
+          labels:
+            severity: warning
+            team: platform-engineering
+          annotations:
+            summary: "Prometheus remote-write failing on ${{ values.environment }}-${{ values.clusterName }}"
+            runbook_url: "https://docs.internal.ms.com/platform/kubernetes/runbook#remote-write-failure"
+
+{%- endif %}

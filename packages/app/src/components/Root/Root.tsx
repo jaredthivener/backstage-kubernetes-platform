@@ -1,9 +1,15 @@
 import { PropsWithChildren } from 'react';
 import { makeStyles } from '@material-ui/core';
-import HomeIcon from '@material-ui/icons/Home';
-import ExtensionIcon from '@material-ui/icons/Extension';
+import DashboardIcon from '@material-ui/icons/Dashboard';
+import BuildIcon from '@material-ui/icons/Build';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
+import CloudIcon from '@material-ui/icons/Cloud';
+import SecurityIcon from '@material-ui/icons/Security';
+import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet';
+import AssessmentIcon from '@material-ui/icons/Assessment';
+import AttachMoneyIcon from '@material-ui/icons/AttachMoney';
+import HeadsetMicIcon from '@material-ui/icons/HeadsetMic';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -20,6 +26,8 @@ import {
   SidebarPage,
   SidebarScrollWrapper,
   SidebarSpace,
+  SidebarSubmenu,
+  SidebarSubmenuItem,
   useSidebarOpenState,
   Link,
 } from '@backstage/core-components';
@@ -31,7 +39,7 @@ import { NotificationsSidebarItem } from '@backstage/plugin-notifications';
 
 const useSidebarLogoStyles = makeStyles({
   root: {
-    width: sidebarConfig.drawerWidthClosed,
+    width: sidebarConfig.drawerWidthOpen,
     height: 3 * sidebarConfig.logoHeight,
     display: 'flex',
     flexFlow: 'row nowrap',
@@ -39,8 +47,8 @@ const useSidebarLogoStyles = makeStyles({
     marginBottom: -14,
   },
   link: {
-    width: sidebarConfig.drawerWidthClosed,
-    marginLeft: 24,
+    width: sidebarConfig.drawerWidthOpen - 24,
+    marginLeft: 16,
   },
 });
 
@@ -66,17 +74,44 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
       </SidebarGroup>
       <SidebarDivider />
       <SidebarGroup label="Menu" icon={<MenuIcon />}>
-        {/* Global nav, not org-specific */}
-        <SidebarItem icon={HomeIcon} to="catalog" text="Home" />
+        {/* Global nav */}
+        <SidebarItem icon={DashboardIcon} to="/" text="Dashboard" />
         <MyGroupsSidebarItem
           singularTitle="My Group"
           pluralTitle="My Groups"
           icon={GroupIcon}
         />
-        <SidebarItem icon={ExtensionIcon} to="api-docs" text="APIs" />
+        <SidebarDivider />
+        {/* Kubernetes as a Service */}
+        <SidebarItem icon={SettingsEthernetIcon} to="clusters" text="Clusters" />
+        <SidebarItem icon={CloudIcon} text="Platforms">
+          <SidebarSubmenu title="Cloud Providers">
+            <SidebarSubmenuItem
+              title="Azure (AKS)"
+              to="/clusters?csp=azure"
+              icon={CloudIcon}
+            />
+            <SidebarSubmenuItem
+              title="AWS (EKS)"
+              to="/clusters?csp=aws"
+              icon={CloudIcon}
+            />
+            <SidebarSubmenuItem
+              title="GCP (GKE)"
+              to="/clusters?csp=gcp"
+              icon={CloudIcon}
+            />
+          </SidebarSubmenu>
+        </SidebarItem>
+        <SidebarItem icon={SecurityIcon} to="security" text="Security" />
+        <SidebarItem icon={AttachMoneyIcon} to="cost" text="Cost" />
+        <SidebarItem icon={AssessmentIcon} to="monitoring" text="Monitoring" />
+        <SidebarDivider />
+        {/* Standard Backstage */}
+        <SidebarItem icon={BuildIcon} to="tools" text="Tools" />
         <SidebarItem icon={LibraryBooks} to="docs" text="Docs" />
+        <SidebarItem icon={HeadsetMicIcon} to="support" text="Support" />
         <SidebarItem icon={CreateComponentIcon} to="create" text="Create..." />
-        {/* End global nav */}
         <SidebarDivider />
         <SidebarScrollWrapper>
           {/* Items in this group will be scrollable if they run out of space */}

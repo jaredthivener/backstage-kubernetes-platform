@@ -1,0 +1,544 @@
+{#- ────────────────────────────────────────────────────────────────────────── -#}
+{#-  Cluster API definition – rendered by Backstage Scaffolder (Nunjucks)     -#}
+{#-  Supports: Azure (CAPZ/AKS), AWS (CAPA/EKS), GCP (CAPG/GKE)            -#}
+{#- ────────────────────────────────────────────────────────────────────────── -#}
+
+{#- ── Compute t-shirt sizes ─────────────────────────────────────────────── -#}
+{%- if values.nodePoolSize == "small" %}
+  {%- set nodeCount = 3 %}
+  {%- set machineType_azure = "Standard_D4s_v5" %}
+  {%- set machineType_aws   = "m6i.xlarge" %}
+  {%- set machineType_gcp   = "e2-standard-4" %}
+{%- elif values.nodePoolSize == "medium" %}
+  {%- set nodeCount = 5 %}
+  {%- set machineType_azure = "Standard_D8s_v5" %}
+  {%- set machineType_aws   = "m6i.2xlarge" %}
+  {%- set machineType_gcp   = "e2-standard-8" %}
+{%- elif values.nodePoolSize == "large" %}
+  {%- set nodeCount = 10 %}
+  {%- set machineType_azure = "Standard_D16s_v5" %}
+  {%- set machineType_aws   = "m6i.4xlarge" %}
+  {%- set machineType_gcp   = "e2-standard-16" %}
+{%- elif values.nodePoolSize == "custom" %}
+  {%- set nodeCount = values.customNodeCount %}
+  {#- For custom, map vCPU to nearest instance family -#}
+  {%- if values.customNodeCpu <= 4 %}
+    {%- set machineType_azure = "Standard_D4s_v5" %}
+    {%- set machineType_aws   = "m6i.xlarge" %}
+    {%- set machineType_gcp   = "e2-standard-4" %}
+  {%- elif values.customNodeCpu <= 8 %}
+    {%- set machineType_azure = "Standard_D8s_v5" %}
+    {%- set machineType_aws   = "m6i.2xlarge" %}
+    {%- set machineType_gcp   = "e2-standard-8" %}
+  {%- elif values.customNodeCpu <= 16 %}
+    {%- set machineType_azure = "Standard_D16s_v5" %}
+    {%- set machineType_aws   = "m6i.4xlarge" %}
+    {%- set machineType_gcp   = "e2-standard-16" %}
+  {%- elif values.customNodeCpu <= 32 %}
+    {%- set machineType_azure = "Standard_D32s_v5" %}
+    {%- set machineType_aws   = "m6i.8xlarge" %}
+    {%- set machineType_gcp   = "e2-standard-32" %}
+  {%- else %}
+    {%- set machineType_azure = "Standard_D48s_v5" %}
+    {%- set machineType_aws   = "m6i.12xlarge" %}
+    {%- set machineType_gcp   = "n2-standard-48" %}
+  {%- endif %}
+{%- endif %}
+
+{#- ── DNS suffix mapping ────────────────────────────────────────────────── -#}
+{%- if values.cloudProvider == "azure" %}
+  {%- if values.environment == "dev" %}
+    {%- set dnsSuffix = "az-dev.ms.com" %}
+  {%- elif values.environment == "qa" %}
+    {%- set dnsSuffix = "az-qa.ms.com" %}
+  {%- else %}
+    {%- set dnsSuffix = "az.ms.com" %}
+  {%- endif %}
+{%- elif values.cloudProvider == "aws" %}
+  {%- if values.environment == "dev" %}
+    {%- set dnsSuffix = "aws-dev.ms.com" %}
+  {%- elif values.environment == "qa" %}
+    {%- set dnsSuffix = "aws-qa.ms.com" %}
+  {%- else %}
+    {%- set dnsSuffix = "aws.ms.com" %}
+  {%- endif %}
+{%- elif values.cloudProvider == "gcp" %}
+  {%- if values.environment == "dev" %}
+    {%- set dnsSuffix = "gcp-dev.ms.com" %}
+  {%- elif values.environment == "qa" %}
+    {%- set dnsSuffix = "gcp-qa.ms.com" %}
+  {%- else %}
+    {%- set dnsSuffix = "gcp.ms.com" %}
+  {%- endif %}
+{%- endif %}
+
+{#- ── Autoscaling defaults ──────────────────────────────────────────────── -#}
+{%- set autoScaleMin = values.autoScalingMin | default(nodeCount) %}
+{%- set autoScaleMax = values.autoScalingMax | default(nodeCount * 3) %}
+
+# =============================================================================
+# Cluster API – Cluster resource (provider-agnostic top-level)
+# =============================================================================
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}
+  namespace: capi-clusters
+  labels:
+    app.kubernetes.io/managed-by: cluster-api
+    app.kubernetes.io/part-of: kubernetes-platform
+    cluster.x-k8s.io/cluster-name: ${{ values.environment }}-${{ values.clusterName }}
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/cloud-provider: ${{ values.cloudProvider }}
+    morgan-stanley.com/region: ${{ values.region }}
+    morgan-stanley.com/owner: ${{ values.ownerTeam }}
+    morgan-stanley.com/cost-center: ${{ values.costCenter | default("UNASSIGNED") }}
+    morgan-stanley.com/compliance: pci-dss
+    prometheus.io/scrape: "true"
+  annotations:
+    morgan-stanley.com/provisioned-by: backstage-scaffolder
+    morgan-stanley.com/dns-suffix: {{ dnsSuffix }}
+    vault.hashicorp.com/role: k8s-${{ values.environment }}-${{ values.clusterName }}
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/tls-skip-verify: "false"
+    argocd.argoproj.io/managed-by: argocd-platform
+spec:
+  clusterNetwork:
+    apiServerPort: 6443
+    pods:
+      cidrBlocks:
+        - "10.244.0.0/16"
+    services:
+      cidrBlocks:
+        - "10.96.0.0/12"
+  controlPlaneRef:
+{%- if values.cloudProvider == "azure" %}
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedControlPlane
+    name: ${{ values.environment }}-${{ values.clusterName }}
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedCluster
+    name: ${{ values.environment }}-${{ values.clusterName }}
+{%- elif values.cloudProvider == "aws" %}
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+    kind: AWSManagedControlPlane
+    name: ${{ values.environment }}-${{ values.clusterName }}
+  infrastructureRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+    kind: AWSManagedControlPlane
+    name: ${{ values.environment }}-${{ values.clusterName }}
+{%- elif values.cloudProvider == "gcp" %}
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: GCPManagedControlPlane
+    name: ${{ values.environment }}-${{ values.clusterName }}
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: GCPManagedCluster
+    name: ${{ values.environment }}-${{ values.clusterName }}
+{%- endif %}
+
+---
+# =============================================================================
+# Provider-specific control plane & infrastructure resources
+# =============================================================================
+
+{% if values.cloudProvider == "azure" %}
+# ── Azure (CAPZ) – AKS Managed Control Plane ────────────────────────────────
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedControlPlane
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}
+  namespace: capi-clusters
+  labels:
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/cloud-provider: azure
+  annotations:
+    vault.hashicorp.com/role: k8s-${{ values.environment }}-${{ values.clusterName }}
+spec:
+  identityRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureClusterIdentity
+    name: ms-platform-identity
+  subscriptionID: "${AZURE_SUBSCRIPTION_ID}"
+  resourceGroupName: rg-k8s-${{ values.environment }}-${{ values.clusterName }}
+  location: ${{ values.region }}
+  version: v${{ values.kubernetesVersion }}
+  dnsPrefix: ${{ values.environment }}-${{ values.clusterName }}
+  networkPlugin: azure
+  networkPolicy: calico
+  networkDataplane: cilium
+  loadBalancerSKU: Standard
+  outboundType: userDefinedRouting
+  sku:
+    tier: Standard
+  aadProfile:
+    managed: true
+    enableAzureRBAC: true
+    adminGroupObjectIDs:
+      - "${AAD_ADMIN_GROUP_ID}"
+  addonProfiles:
+    - name: azurepolicy
+      enabled: true
+    - name: azureKeyvaultSecretsProvider
+      enabled: true
+  apiServerAccessProfile:
+    authorizedIPRanges:
+      - "10.0.0.0/8"
+    enablePrivateCluster: true
+    privateDNSZone: system
+  autoScalerProfile:
+    balanceSimilarNodeGroups: "true"
+    expander: least-waste
+    maxGracefulTerminationSec: "600"
+    scaleDownDelayAfterAdd: 10m
+    scaleDownUnneededTime: 10m
+    scanInterval: 10s
+
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedCluster
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}
+  namespace: capi-clusters
+spec: {}
+
+---
+# AKS system node pool
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}-system
+  namespace: capi-clusters
+spec:
+  mode: System
+  sku: Standard_D4s_v5
+  osDiskSizeGB: 128
+  osDiskType: Ephemeral
+  maxPods: 110
+  availabilityZones:
+    - "1"
+    - "2"
+    - "3"
+  scaling:
+    minSize: 3
+    maxSize: 6
+  enableNodePublicIP: false
+  nodeLabels:
+    morgan-stanley.com/pool: system
+  taints:
+    - key: CriticalAddonsOnly
+      value: "true"
+      effect: PreferNoSchedule
+
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}-system
+  namespace: capi-clusters
+spec:
+  clusterName: ${{ values.environment }}-${{ values.clusterName }}
+  replicas: 3
+  template:
+    spec:
+      clusterName: ${{ values.environment }}-${{ values.clusterName }}
+      bootstrap:
+        dataSecretName: ""
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
+        name: ${{ values.environment }}-${{ values.clusterName }}-system
+
+---
+# AKS worker node pool
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}-workers
+  namespace: capi-clusters
+spec:
+  mode: User
+  sku: {{ machineType_azure }}
+  osDiskSizeGB: 256
+  osDiskType: Ephemeral
+  maxPods: 110
+  availabilityZones:
+    - "1"
+    - "2"
+    - "3"
+{%- if values.enableAutoScaling %}
+  scaling:
+    minSize: {{ autoScaleMin }}
+    maxSize: {{ autoScaleMax }}
+{%- endif %}
+  enableNodePublicIP: false
+  nodeLabels:
+    morgan-stanley.com/pool: workers
+    morgan-stanley.com/owner: ${{ values.ownerTeam }}
+
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}-workers
+  namespace: capi-clusters
+spec:
+  clusterName: ${{ values.environment }}-${{ values.clusterName }}
+  replicas: {{ nodeCount }}
+  template:
+    spec:
+      clusterName: ${{ values.environment }}-${{ values.clusterName }}
+      bootstrap:
+        dataSecretName: ""
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
+        name: ${{ values.environment }}-${{ values.clusterName }}-workers
+
+{% elif values.cloudProvider == "aws" %}
+# ── AWS (CAPA) – EKS Managed Control Plane ──────────────────────────────────
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
+kind: AWSManagedControlPlane
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}
+  namespace: capi-clusters
+  labels:
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/cloud-provider: aws
+  annotations:
+    vault.hashicorp.com/role: k8s-${{ values.environment }}-${{ values.clusterName }}
+spec:
+  region: ${{ values.region }}
+  version: v${{ values.kubernetesVersion }}
+  eksClusterName: ${{ values.environment }}-${{ values.clusterName }}
+  sshKeyName: ms-platform-key
+  iamAuthenticatorConfig:
+    mapRoles:
+      - rolearn: "arn:aws:iam::role/ms-k8s-admin"
+        username: admin
+        groups:
+          - system:masters
+  endpointAccess:
+    private: true
+    public: false
+  encryptionConfig:
+    provider: "aws-kms"
+    resources:
+      - secrets
+  logging:
+    apiServer: true
+    audit: true
+    authenticator: true
+    controllerManager: true
+    scheduler: true
+  kubernetesNetworkConfig:
+    serviceNetwork:
+      - "10.96.0.0/12"
+  addons:
+    - name: vpc-cni
+      version: v1.16.0
+      conflictResolution: overwrite
+    - name: coredns
+      version: v1.11.1
+      conflictResolution: overwrite
+    - name: kube-proxy
+      version: v${{ values.kubernetesVersion }}.1
+      conflictResolution: overwrite
+    - name: aws-ebs-csi-driver
+      version: v1.28.0
+      conflictResolution: overwrite
+  associateOIDCProvider: true
+  network:
+    vpc:
+      availabilityZoneUsageLimit: 3
+    cni:
+      cniIngressRules:
+        - description: BGP (Calico)
+          protocol: tcp
+          fromPort: 179
+          toPort: 179
+    subnets:
+      - availabilityZone: ${{ values.region }}a
+        cidrBlock: 10.0.0.0/19
+        isPublic: false
+      - availabilityZone: ${{ values.region }}b
+        cidrBlock: 10.0.32.0/19
+        isPublic: false
+      - availabilityZone: ${{ values.region }}c
+        cidrBlock: 10.0.64.0/19
+        isPublic: false
+  bastion:
+    enabled: false
+  tags:
+    morgan-stanley:environment: ${{ values.environment }}
+    morgan-stanley:owner: ${{ values.ownerTeam }}
+    morgan-stanley:cost-center: ${{ values.costCenter | default("UNASSIGNED") }}
+    morgan-stanley:compliance: pci-dss
+
+---
+# EKS Managed Node Group
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: AWSManagedMachinePool
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}-workers
+  namespace: capi-clusters
+spec:
+  eksNodegroupName: ${{ values.environment }}-${{ values.clusterName }}-workers
+  instanceType: {{ machineType_aws }}
+  diskSize: 256
+{%- if values.enableAutoScaling %}
+  scaling:
+    minSize: {{ autoScaleMin }}
+    maxSize: {{ autoScaleMax }}
+{%- endif %}
+  amiType: AL2_x86_64
+  subnetIDs: []
+  labels:
+    morgan-stanley.com/pool: workers
+    morgan-stanley.com/owner: ${{ values.ownerTeam }}
+  availabilityZones:
+    - ${{ values.region }}a
+    - ${{ values.region }}b
+    - ${{ values.region }}c
+  updateConfig:
+    maxUnavailable: 1
+
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}-workers
+  namespace: capi-clusters
+spec:
+  clusterName: ${{ values.environment }}-${{ values.clusterName }}
+  replicas: {{ nodeCount }}
+  template:
+    spec:
+      clusterName: ${{ values.environment }}-${{ values.clusterName }}
+      bootstrap:
+        dataSecretName: ""
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: AWSManagedMachinePool
+        name: ${{ values.environment }}-${{ values.clusterName }}-workers
+
+{% elif values.cloudProvider == "gcp" %}
+# ── GCP (CAPG) – GKE Managed Control Plane ──────────────────────────────────
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: GCPManagedControlPlane
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}
+  namespace: capi-clusters
+  labels:
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/cloud-provider: gcp
+  annotations:
+    vault.hashicorp.com/role: k8s-${{ values.environment }}-${{ values.clusterName }}
+spec:
+  project: ms-k8s-${{ values.environment }}
+  location: ${{ values.region }}
+  clusterName: ${{ values.environment }}-${{ values.clusterName }}
+  releaseChannel: REGULAR
+  enableAutopilot: false
+  version: v${{ values.kubernetesVersion }}
+  masterAuthorizedNetworksConfig:
+    enabled: true
+    cidrBlocks:
+      - cidrBlock: "10.0.0.0/8"
+        displayName: internal-network
+  privateCluster:
+    enablePrivateEndpoint: true
+    enablePrivateNodes: true
+    masterIpv4CidrBlock: "172.16.0.0/28"
+  networkConfig:
+    datapathProvider: ADVANCED_DATAPATH    # GKE Dataplane V2
+    defaultSnatStatus:
+      disabled: true
+  loggingConfig:
+    enableComponents:
+      - SYSTEM_COMPONENTS
+      - WORKLOADS
+  monitoringConfig:
+    enableComponents:
+      - SYSTEM_COMPONENTS
+  workloadIdentityConfig:
+    workloadPool: ms-k8s-${{ values.environment }}.svc.id.goog
+  binaryAuthorization:
+    evaluationMode: PROJECT_SINGLETON_POLICY_ENFORCE
+  resourceLabels:
+    morgan-stanley-environment: ${{ values.environment }}
+    morgan-stanley-owner: ${{ values.ownerTeam }}
+    morgan-stanley-cost-center: ${{ values.costCenter | default("unassigned") | lower }}
+    morgan-stanley-compliance: pci-dss
+  network: ms-k8s-${{ values.environment }}-vpc
+  subnetwork: ms-k8s-${{ values.environment }}-subnet
+
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: GCPManagedCluster
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}
+  namespace: capi-clusters
+spec:
+  project: ms-k8s-${{ values.environment }}
+  region: ${{ values.region }}
+
+---
+# GKE Node Pool
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: GCPManagedMachinePool
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}-workers
+  namespace: capi-clusters
+spec:
+  nodePoolName: ${{ values.environment }}-${{ values.clusterName }}-workers
+  machineType: {{ machineType_gcp }}
+  diskSizeGb: 256
+  diskType: pd-ssd
+  imageType: COS_CONTAINERD
+  management:
+    autoRepair: true
+    autoUpgrade: true
+  maxPodsPerNode: 110
+{%- if values.enableAutoScaling %}
+  scaling:
+    minCount: {{ autoScaleMin }}
+    maxCount: {{ autoScaleMax }}
+    enableAutoscaling: true
+{%- endif %}
+  nodeLocations:
+    - ${{ values.region }}-a
+    - ${{ values.region }}-b
+    - ${{ values.region }}-c
+  kubernetesLabels:
+    morgan-stanley.com/pool: workers
+    morgan-stanley.com/owner: ${{ values.ownerTeam }}
+  shieldedInstanceConfig:
+    enableSecureBoot: true
+    enableIntegrityMonitoring: true
+  linuxNodeConfig:
+    sysctls:
+      net.core.somaxconn: "32768"
+      net.ipv4.tcp_tw_reuse: "1"
+
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}-workers
+  namespace: capi-clusters
+spec:
+  clusterName: ${{ values.environment }}-${{ values.clusterName }}
+  replicas: {{ nodeCount }}
+  template:
+    spec:
+      clusterName: ${{ values.environment }}-${{ values.clusterName }}
+      bootstrap:
+        dataSecretName: ""
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: GCPManagedMachinePool
+        name: ${{ values.environment }}-${{ values.clusterName }}-workers
+
+{% endif %}

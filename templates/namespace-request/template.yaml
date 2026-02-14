@@ -1,0 +1,367 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kubernetes-namespace-request
+  title: Request Kubernetes Namespace
+  description: |
+    Request a new namespace on an existing Kubernetes cluster. This template
+    creates a TeamNamespace custom resource in the cluster's GitOps repository.
+    The namespace-operator provisions the namespace with RBAC bindings,
+    resource quotas, limit ranges, network policies, and Vault paths.
+  tags:
+    - kubernetes
+    - namespace
+    - day2
+    - rbac
+    - gitops
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    morgan-stanley.com/owner-squad: platform-engineering
+    morgan-stanley.com/compliance: pci-dss
+  links:
+    - title: Namespace Onboarding Guide
+      url: https://docs.internal.ms.com/platform/kubernetes/namespaces
+      icon: docs
+    - title: Resource Quota Reference
+      url: https://docs.internal.ms.com/platform/kubernetes/quotas
+      icon: dashboard
+spec:
+  owner: group:platform-engineering
+  type: infrastructure
+  lifecycle: production
+
+  # ---------------------------------------------------------------------------
+  # Parameters – multi-step wizard
+  # ---------------------------------------------------------------------------
+  parameters:
+    # ── Step 1: Select Cluster ───────────────────────────────────────────────
+    - title: Select Cluster
+      required:
+        - clusterRef
+      properties:
+        clusterRef:
+          title: Target Cluster
+          type: string
+          description: Select the Kubernetes cluster where the namespace will be created.
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              kind: Resource
+              spec.type: kubernetes-cluster
+            defaultKind: Resource
+          ui:autofocus: true
+
+    # ── Step 2: Namespace Details ────────────────────────────────────────────
+    - title: Namespace Details
+      required:
+        - namespaceName
+        - ownerTeam
+      properties:
+        namespaceName:
+          title: Namespace Name
+          type: string
+          description: |
+            Name for the new namespace. Will be validated against naming
+            conventions. Must be lowercase alphanumeric with hyphens.
+          pattern: '^[a-z][a-z0-9-]{2,62}$'
+          ui:autofocus: true
+          ui:help: 'Must start with a letter, 3-63 chars, lowercase alphanumeric and hyphens only.'
+
+        ownerTeam:
+          title: Owner Team
+          type: string
+          description: |
+            The team that owns this namespace. RBAC roles will be bound to
+            this team's AD group automatically.
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+        purpose:
+          title: Namespace Purpose
+          type: string
+          description: Brief description of what this namespace will be used for.
+          ui:widget: textarea
+          ui:options:
+            rows: 2
+
+        environment:
+          title: Environment Label
+          type: string
+          description: Environment label applied to the namespace.
+          default: dev
+          enum:
+            - dev
+            - qa
+            - staging
+            - prod
+          enumNames:
+            - Development
+            - QA
+            - Staging
+            - Production
+
+    # ── Step 3: Resource Quotas ──────────────────────────────────────────────
+    - title: Resource Quotas
+      required:
+        - cpuRequest
+        - cpuLimit
+        - memoryRequest
+        - memoryLimit
+      properties:
+        cpuRequest:
+          title: CPU Request (cores)
+          type: string
+          description: Total CPU request quota for the namespace.
+          default: '4'
+          enum:
+            - '1'
+            - '2'
+            - '4'
+            - '8'
+            - '16'
+            - '32'
+            - '64'
+          enumNames:
+            - '1 core'
+            - '2 cores'
+            - '4 cores'
+            - '8 cores'
+            - '16 cores'
+            - '32 cores'
+            - '64 cores'
+
+        cpuLimit:
+          title: CPU Limit (cores)
+          type: string
+          description: Total CPU limit quota for the namespace.
+          default: '8'
+          enum:
+            - '2'
+            - '4'
+            - '8'
+            - '16'
+            - '32'
+            - '64'
+            - '128'
+          enumNames:
+            - '2 cores'
+            - '4 cores'
+            - '8 cores'
+            - '16 cores'
+            - '32 cores'
+            - '64 cores'
+            - '128 cores'
+
+        memoryRequest:
+          title: Memory Request
+          type: string
+          description: Total memory request quota for the namespace.
+          default: 8Gi
+          enum:
+            - 2Gi
+            - 4Gi
+            - 8Gi
+            - 16Gi
+            - 32Gi
+            - 64Gi
+            - 128Gi
+          enumNames:
+            - '2 GB'
+            - '4 GB'
+            - '8 GB'
+            - '16 GB'
+            - '32 GB'
+            - '64 GB'
+            - '128 GB'
+
+        memoryLimit:
+          title: Memory Limit
+          type: string
+          description: Total memory limit quota for the namespace.
+          default: 16Gi
+          enum:
+            - 4Gi
+            - 8Gi
+            - 16Gi
+            - 32Gi
+            - 64Gi
+            - 128Gi
+            - 256Gi
+          enumNames:
+            - '4 GB'
+            - '8 GB'
+            - '16 GB'
+            - '32 GB'
+            - '64 GB'
+            - '128 GB'
+            - '256 GB'
+
+        storageQuota:
+          title: Persistent Volume Storage Quota
+          type: string
+          description: Maximum total persistent volume storage for the namespace.
+          default: 50Gi
+          enum:
+            - 10Gi
+            - 50Gi
+            - 100Gi
+            - 500Gi
+            - 1Ti
+
+        maxPods:
+          title: Max Pods
+          type: integer
+          description: Maximum number of pods allowed in the namespace.
+          default: 50
+          minimum: 5
+          maximum: 500
+
+    # ── Step 4: Network Policy ───────────────────────────────────────────────
+    - title: Network Policy
+      required:
+        - networkPolicyTier
+      properties:
+        networkPolicyTier:
+          title: Network Policy Tier
+          type: string
+          description: |
+            Defines the default network policy posture for the namespace.
+          default: standard
+          enum:
+            - restricted
+            - standard
+            - permissive
+          enumNames:
+            - 'Restricted — deny-all ingress & egress; explicit allowlists only (PCI-DSS)'
+            - 'Standard — deny-all ingress; allow egress to cluster DNS & internet'
+            - 'Permissive — allow all intra-namespace; deny cross-namespace by default'
+
+        allowInternetEgress:
+          title: Allow Internet Egress
+          type: boolean
+          default: false
+          description: Allow pods in this namespace to reach the public internet.
+
+        allowedNamespaces:
+          title: Allowed Ingress Namespaces
+          type: string
+          description: |
+            Comma-separated list of namespaces allowed to send traffic to
+            this namespace (e.g., "ingress-nginx,monitoring").
+          ui:help: 'Leave blank for default policy tier rules.'
+
+    # ── Step 5: Confirmation ─────────────────────────────────────────────────
+    - title: Review & Confirm
+      properties:
+        prBranch:
+          title: Pull Request Branch Name
+          type: string
+          default: namespace/new-request
+          description: Branch name for the namespace request pull request.
+          pattern: '^[a-z0-9][a-z0-9/_-]{2,60}$'
+
+  # ---------------------------------------------------------------------------
+  # Steps
+  # ---------------------------------------------------------------------------
+  steps:
+    # ── 1. Fetch cluster info from catalog ───────────────────────────────────
+    - id: catalog-fetch
+      name: Fetch cluster details from catalog
+      action: catalog:fetch
+      input:
+        entityRef: ${{ parameters.clusterRef }}
+
+    # ── 2. Render TeamNamespace CR ───────────────────────────────────────────
+    - id: fetch-template
+      name: Render namespace manifests
+      action: fetch:template
+      input:
+        url: ./skeleton
+        targetPath: ./namespace-patch
+        values:
+          clusterRef: ${{ parameters.clusterRef }}
+          namespaceName: ${{ parameters.namespaceName }}
+          ownerTeam: ${{ parameters.ownerTeam }}
+          purpose: ${{ parameters.purpose }}
+          environment: ${{ parameters.environment }}
+          cpuRequest: ${{ parameters.cpuRequest }}
+          cpuLimit: ${{ parameters.cpuLimit }}
+          memoryRequest: ${{ parameters.memoryRequest }}
+          memoryLimit: ${{ parameters.memoryLimit }}
+          storageQuota: ${{ parameters.storageQuota }}
+          maxPods: ${{ parameters.maxPods }}
+          networkPolicyTier: ${{ parameters.networkPolicyTier }}
+          allowInternetEgress: ${{ parameters.allowInternetEgress }}
+          allowedNamespaces: ${{ parameters.allowedNamespaces }}
+
+    # ── 3. Open PR to add namespace to cluster GitOps repo ───────────────────
+    - id: publish-pr
+      name: Open namespace request pull request
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=morgan-stanley&repo=k8s-cluster-${{ steps['catalog-fetch'].output.entity.metadata.annotations['morgan-stanley.com/gitops-repo'] }}
+        branchName: ${{ parameters.prBranch }}
+        title: 'feat(namespace): Request namespace ${{ parameters.namespaceName }} for ${{ parameters.ownerTeam }}'
+        description: |
+          ## Namespace Request
+
+          | Field | Value |
+          |-------|-------|
+          | **Cluster** | `${{ parameters.clusterRef }}` |
+          | **Namespace** | `${{ parameters.namespaceName }}` |
+          | **Owner Team** | `${{ parameters.ownerTeam }}` |
+          | **Environment** | `${{ parameters.environment }}` |
+          | **Purpose** | ${{ parameters.purpose }} |
+
+          ### Resource Quotas
+
+          | Resource | Request | Limit |
+          |----------|---------|-------|
+          | **CPU** | ${{ parameters.cpuRequest }} cores | ${{ parameters.cpuLimit }} cores |
+          | **Memory** | ${{ parameters.memoryRequest }} | ${{ parameters.memoryLimit }} |
+          | **Storage** | — | ${{ parameters.storageQuota }} |
+          | **Max Pods** | — | ${{ parameters.maxPods }} |
+
+          ### Network Policy
+
+          | Setting | Value |
+          |---------|-------|
+          | **Tier** | `${{ parameters.networkPolicyTier }}` |
+          | **Internet Egress** | `${{ parameters.allowInternetEgress }}` |
+          | **Allowed Namespaces** | `${{ parameters.allowedNamespaces }}` |
+
+          ---
+          _Opened by Backstage Software Template `kubernetes-namespace-request`._
+        sourcePath: ./namespace-patch
+        targetPath: /namespaces
+
+  # ---------------------------------------------------------------------------
+  # Output
+  # ---------------------------------------------------------------------------
+  output:
+    links:
+      - title: Namespace Request Pull Request
+        url: ${{ steps['publish-pr'].output.remoteUrl }}
+      - title: Cluster in Backstage Catalog
+        entityRef: ${{ parameters.clusterRef }}
+      - title: ArgoCD Application
+        url: https://argocd.internal.ms.com/applications/${{ parameters.clusterRef }}
+    text:
+      - title: Next Steps
+        content: |
+          A pull request has been opened to create namespace
+          **${{ parameters.namespaceName }}** on cluster **${{ parameters.clusterRef }}**
+          owned by **${{ parameters.ownerTeam }}**.
+
+          Once the PR is approved and merged:
+          1. ArgoCD will sync the TeamNamespace CR to the cluster.
+          2. The namespace-operator will create:
+             - The namespace with labels and annotations
+             - ResourceQuota (${{ parameters.cpuRequest }} CPU / ${{ parameters.memoryRequest }} memory request)
+             - LimitRange with sensible defaults
+             - RBAC RoleBindings for team `${{ parameters.ownerTeam }}`
+             - NetworkPolicy (`${{ parameters.networkPolicyTier }}` tier)
+             - Vault policy and Kubernetes auth role at `secret/data/${{ parameters.namespaceName }}`
+          3. The team can begin deploying workloads immediately.

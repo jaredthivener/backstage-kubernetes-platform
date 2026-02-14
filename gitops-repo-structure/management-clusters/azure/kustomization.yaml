@@ -1,0 +1,151 @@
+# =============================================================================
+# Azure Management Cluster — Kustomize Base
+# Manages CAPI + CAPZ controllers, ArgoCD, and supporting infrastructure
+# on the Azure (AKS) management cluster.
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: mgmt-azure
+  annotations:
+    morgan-stanley.com/managed-by: platform-engineering
+    morgan-stanley.com/cluster-role: management
+    morgan-stanley.com/cloud-provider: azure
+
+namespace: capi-system
+
+resources:
+  # ── Cluster API Core ───────────────────────────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.0/core-components.yaml
+
+  # ── CAPZ (Azure) Infrastructure Provider ───────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api-provider-azure/releases/download/v1.16.0/infrastructure-components.yaml
+
+  # ── Bootstrap & Control Plane Providers ────────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.0/bootstrap-components.yaml
+  - https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.0/control-plane-components.yaml
+
+  # ── ArgoCD ─────────────────────────────────────────────────────────────────
+  - argocd/namespace.yaml
+  - argocd/argocd-install.yaml
+  - argocd/argocd-cm.yaml
+  - argocd/argocd-rbac-cm.yaml
+  - argocd/argocd-notifications-cm.yaml
+  - argocd/argocd-repo-credentials.yaml
+  - argocd/appproject-kubernetes-clusters.yaml
+
+  # ── cert-manager ───────────────────────────────────────────────────────────
+  - cert-manager/cert-manager.yaml
+  - cert-manager/cluster-issuer.yaml
+
+  # ── Monitoring ─────────────────────────────────────────────────────────────
+  - monitoring/prometheus-operator.yaml
+  - monitoring/servicemonitor-capi.yaml
+  - monitoring/grafana-dashboards.yaml
+
+  # ── CAPI Cluster Namespace ────────────────────────────────────────────────
+  - namespaces/capi-clusters.yaml
+
+patches:
+  # ── CAPZ identity: use Azure Workload Identity (OIDC, no secrets) ──────────
+  - target:
+      kind: Deployment
+      name: capz-controller-manager
+      namespace: capz-system
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: capz-controller-manager
+        namespace: capz-system
+      spec:
+        template:
+          metadata:
+            labels:
+              azure.workload.identity/use: "true"
+          spec:
+            serviceAccountName: capz-controller-manager
+            containers:
+              - name: manager
+                env:
+                  - name: AZURE_TENANT_ID
+                    value: "${AZURE_TENANT_ID}"
+                  - name: AZURE_SUBSCRIPTION_ID
+                    value: "${AZURE_SUBSCRIPTION_ID}"
+                  - name: AZURE_CLIENT_ID
+                    value: "${AZURE_OIDC_CLIENT_ID}"
+
+  # ── ArgoCD: configure SSO with Azure AD / Entra ID ────────────────────────
+  - target:
+      kind: ConfigMap
+      name: argocd-cm
+      namespace: argocd
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-cm
+        namespace: argocd
+      data:
+        url: https://argocd.internal.ms.com
+        oidc.config: |
+          name: AzureAD
+          issuer: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
+          clientID: ${ARGOCD_AZURE_CLIENT_ID}
+          clientSecret: $argocd-azure-secret:client-secret
+          requestedScopes: ["openid", "profile", "email"]
+        resource.customizations.health.cluster.x-k8s.io_Cluster: |
+          hs = {}
+          if obj.status ~= nil then
+            if obj.status.conditions ~= nil then
+              for _, condition in ipairs(obj.status.conditions) do
+                if condition.type == "Ready" and condition.status == "True" then
+                  hs.status = "Healthy"
+                  hs.message = "Cluster is ready"
+                  return hs
+                end
+              end
+            end
+          end
+          hs.status = "Progressing"
+          hs.message = "Cluster is being provisioned"
+          return hs
+
+  # ── Resource limits for CAPI controllers ──────────────────────────────────
+  - target:
+      kind: Deployment
+      name: capi-controller-manager
+      namespace: capi-system
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: capi-controller-manager
+      spec:
+        template:
+          spec:
+            containers:
+              - name: manager
+                resources:
+                  requests:
+                    cpu: 200m
+                    memory: 256Mi
+                  limits:
+                    cpu: "1"
+                    memory: 1Gi
+
+commonLabels:
+  app.kubernetes.io/part-of: kubernetes-platform
+  app.kubernetes.io/managed-by: kustomize
+  morgan-stanley.com/cluster-role: management
+  morgan-stanley.com/cloud-provider: azure
+
+configMapGenerator:
+  - name: capi-azure-config
+    namespace: capz-system
+    literals:
+      - AZURE_ENVIRONMENT=AzurePublicCloud
+      - CLUSTER_TOPOLOGY=true
+      - EXP_MACHINE_POOL=true
+      - EXP_AKS_RESOURCE_HEALTH=true

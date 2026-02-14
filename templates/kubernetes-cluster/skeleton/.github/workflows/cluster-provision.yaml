@@ -1,0 +1,238 @@
+# =============================================================================
+# Cluster Provision Workflow
+# Validates and applies CAPI manifests to the management cluster via GitOps.
+# Uses OIDC federated identity for CSP authentication (no long-lived secrets).
+# =============================================================================
+name: Cluster Provision
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'cluster-definition.yaml'
+      - 'addons/**'
+      - 'argocd-app.yaml'
+
+permissions:
+  id-token: write      # OIDC token for CSP authentication
+  contents: read
+  statuses: write
+  actions: read
+
+env:
+  CLUSTER_NAME: "${{ values.environment }}-${{ values.clusterName }}"
+  CLOUD_PROVIDER: "${{ values.cloudProvider }}"
+  ENVIRONMENT: "${{ values.environment }}"
+  REGION: "${{ values.region }}"
+  OWNER_TEAM: "${{ values.ownerTeam }}"
+  BACKSTAGE_API: "https://backstage.internal.ms.com/api"
+{%- if values.cloudProvider == "azure" %}
+  MGMT_CLUSTER_CONTEXT: "mgmt-azure"
+  AZURE_TENANT_ID: "{% raw %}${{ secrets.AZURE_TENANT_ID }}{% endraw %}"
+  AZURE_SUBSCRIPTION_ID: "{% raw %}${{ secrets.AZURE_SUBSCRIPTION_ID }}{% endraw %}"
+  AZURE_CLIENT_ID: "{% raw %}${{ secrets.AZURE_OIDC_CLIENT_ID }}{% endraw %}"
+{%- elif values.cloudProvider == "aws" %}
+  MGMT_CLUSTER_CONTEXT: "mgmt-aws"
+  AWS_REGION: "${{ values.region }}"
+  AWS_ROLE_ARN: "{% raw %}${{ secrets.AWS_OIDC_ROLE_ARN }}{% endraw %}"
+{%- elif values.cloudProvider == "gcp" %}
+  MGMT_CLUSTER_CONTEXT: "mgmt-gcp"
+  GCP_PROJECT_ID: "{% raw %}${{ secrets.GCP_PROJECT_ID }}{% endraw %}"
+  GCP_WORKLOAD_IDENTITY_PROVIDER: "{% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}{% endraw %}"
+  GCP_SERVICE_ACCOUNT: "{% raw %}${{ secrets.GCP_SERVICE_ACCOUNT }}{% endraw %}"
+{%- endif %}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Validate CAPI manifests
+  # ---------------------------------------------------------------------------
+  validate:
+    name: Validate Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install tooling
+        run: |
+          # kubeconform for schema validation
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-amd64.tar.gz \
+            | tar xz -C /usr/local/bin
+          # conftest for OPA policy checks
+          curl -sSL https://github.com/open-policy-agent/conftest/releases/download/v0.50.0/conftest_0.50.0_Linux_x86_64.tar.gz \
+            | tar xz -C /usr/local/bin
+
+      - name: Validate YAML schema with kubeconform
+        run: |
+          echo "::group::Kubeconform schema validation"
+          kubeconform \
+            -strict \
+            -summary \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/kubernetes-sigs/cluster-api/main/config/crd/bases/{{.Group}}_{{.ResourceKind}}.json' \
+            -skip Kustomization \
+            -output json \
+            cluster-definition.yaml addons/*.yaml
+          echo "::endgroup::"
+
+      - name: Fetch PCI-DSS policies
+        run: |
+          git clone --depth 1 https://github.com/${{ values.repoOwner }}/platform-opa-policies.git /tmp/policies
+
+      - name: Run OPA/Conftest PCI-DSS policy checks
+        run: |
+          echo "::group::OPA Policy Checks (PCI-DSS)"
+          conftest test \
+            --policy /tmp/policies/pci-dss \
+            --policy /tmp/policies/kubernetes \
+            --all-namespaces \
+            --output json \
+            cluster-definition.yaml addons/*.yaml
+          echo "::endgroup::"
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Apply to management cluster
+  # ---------------------------------------------------------------------------
+  provision:
+    name: Apply to Management Cluster
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: ${{ values.environment }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+{%- if values.cloudProvider == "azure" %}
+
+      # ── Azure OIDC Authentication ──────────────────────────────────────────
+      - name: Azure OIDC Login
+        uses: azure/login@v2
+        with:
+          client-id: {% raw %}${{ env.AZURE_CLIENT_ID }}{% endraw %}
+          tenant-id: {% raw %}${{ env.AZURE_TENANT_ID }}{% endraw %}
+          subscription-id: {% raw %}${{ env.AZURE_SUBSCRIPTION_ID }}{% endraw %}
+
+      - name: Get AKS management cluster credentials
+        run: |
+          az aks get-credentials \
+            --resource-group rg-mgmt-platform \
+            --name aks-mgmt-cluster \
+            --overwrite-existing
+{%- elif values.cloudProvider == "aws" %}
+
+      # ── AWS OIDC Authentication ────────────────────────────────────────────
+      - name: Configure AWS OIDC Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: {% raw %}${{ env.AWS_ROLE_ARN }}{% endraw %}
+          aws-region: {% raw %}${{ env.AWS_REGION }}{% endraw %}
+          role-session-name: github-actions-capi-provision
+
+      - name: Get EKS management cluster credentials
+        run: |
+          aws eks update-kubeconfig \
+            --name eks-mgmt-cluster \
+            --region us-east-1 \
+            --alias mgmt-aws
+{%- elif values.cloudProvider == "gcp" %}
+
+      # ── GCP OIDC Authentication ────────────────────────────────────────────
+      - name: Authenticate to GCP via Workload Identity
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: {% raw %}${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}{% endraw %}
+          service_account: {% raw %}${{ env.GCP_SERVICE_ACCOUNT }}{% endraw %}
+
+      - name: Get GKE management cluster credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: gke-mgmt-cluster
+          location: us-central1
+          project_id: {% raw %}${{ env.GCP_PROJECT_ID }}{% endraw %}
+{%- endif %}
+
+      - name: Apply CAPI manifests to management cluster
+        run: |
+          echo "::group::Applying Cluster API manifests"
+          kubectl apply \
+            --server-side \
+            --force-conflicts \
+            -f cluster-definition.yaml
+
+          # Apply add-on manifests
+          if [ -d addons ]; then
+            kubectl apply --server-side -f addons/
+          fi
+
+          echo "::endgroup::"
+          echo "✅ CAPI manifests applied to management cluster"
+
+      - name: Wait for Cluster to be provisioned
+        run: |
+          echo "Waiting for cluster ${{ values.environment }}-${{ values.clusterName }} to report Ready..."
+          kubectl wait cluster/${{ values.environment }}-${{ values.clusterName }} \
+            --for=condition=Ready \
+            --timeout=1200s \
+            --namespace=capi-clusters || {
+              echo "⚠️ Cluster not ready within timeout – check ArgoCD and CAPI controller logs"
+              exit 1
+            }
+
+      - name: Verify cluster health
+        run: |
+          echo "::group::Cluster health verification"
+          kubectl get cluster ${{ values.environment }}-${{ values.clusterName }} \
+            -n capi-clusters -o yaml
+          kubectl get machines -n capi-clusters \
+            -l cluster.x-k8s.io/cluster-name=${{ values.environment }}-${{ values.clusterName }}
+          echo "::endgroup::"
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Post-provision notifications
+  # ---------------------------------------------------------------------------
+  notify:
+    name: Notify Backstage
+    needs: provision
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post status to Backstage
+        run: |
+          STATUS="{% raw %}${{ needs.provision.result }}{% endraw %}"
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE="✅ Cluster **${{ values.environment }}-${{ values.clusterName }}** provisioned successfully on **${{ values.cloudProvider | upper }}** (${{ values.region }})."
+            SEVERITY="normal"
+          else
+            MESSAGE="❌ Cluster **${{ values.environment }}-${{ values.clusterName }}** provisioning failed on **${{ values.cloudProvider | upper }}** (${{ values.region }}). Check [workflow logs]({% raw %}${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}{% endraw %})."
+            SEVERITY="critical"
+          fi
+
+          curl -s -X POST "${{ values.backstageApi | default('https://backstage.internal.ms.com/api') }}/notifications" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer {% raw %}${{ secrets.BACKSTAGE_TOKEN }}{% endraw %}" \
+            -d "{
+              \"recipients\": {\"type\": \"entity\", \"entityRef\": \"group:default/${{ values.ownerTeam }}\"},
+              \"payload\": {
+                \"title\": \"Cluster Provision: ${{ values.environment }}-${{ values.clusterName }}\",
+                \"description\": \"${MESSAGE}\",
+                \"severity\": \"${SEVERITY}\",
+                \"link\": \"{% raw %}${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}{% endraw %}\",
+                \"topic\": \"kubernetes-cluster-provision\"
+              }
+            }"
+
+      - name: Update Backstage catalog entity
+        if: {% raw %}${{ needs.provision.result == 'success' }}{% endraw %}
+        run: |
+          curl -s -X PATCH "${BACKSTAGE_API}/catalog/entities/by-name/resource/default/${{ values.environment }}-${{ values.clusterName }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer {% raw %}${{ secrets.BACKSTAGE_TOKEN }}{% endraw %}" \
+            -d '{
+              "metadata": {
+                "annotations": {
+                  "morgan-stanley.com/provision-status": "ready",
+                  "morgan-stanley.com/last-provisioned": "'"{% raw %}${{ github.event.head_commit.timestamp }}{% endraw %}"'"
+                }
+              }
+            }'

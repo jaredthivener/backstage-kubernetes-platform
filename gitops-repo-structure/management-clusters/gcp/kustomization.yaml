@@ -1,0 +1,151 @@
+# =============================================================================
+# GCP Management Cluster — Kustomize Base
+# Manages CAPI + CAPG controllers, ArgoCD, and supporting infrastructure
+# on the GCP (GKE) management cluster.
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: mgmt-gcp
+  annotations:
+    morgan-stanley.com/managed-by: platform-engineering
+    morgan-stanley.com/cluster-role: management
+    morgan-stanley.com/cloud-provider: gcp
+
+namespace: capi-system
+
+resources:
+  # ── Cluster API Core ───────────────────────────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.0/core-components.yaml
+
+  # ── CAPG (GCP) Infrastructure Provider ─────────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api-provider-gcp/releases/download/v1.8.0/infrastructure-components.yaml
+
+  # ── Bootstrap & Control Plane Providers ────────────────────────────────────
+  - https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.0/bootstrap-components.yaml
+  - https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.0/control-plane-components.yaml
+
+  # ── ArgoCD ─────────────────────────────────────────────────────────────────
+  - argocd/namespace.yaml
+  - argocd/argocd-install.yaml
+  - argocd/argocd-cm.yaml
+  - argocd/argocd-rbac-cm.yaml
+  - argocd/argocd-notifications-cm.yaml
+  - argocd/argocd-repo-credentials.yaml
+  - argocd/appproject-kubernetes-clusters.yaml
+
+  # ── cert-manager ───────────────────────────────────────────────────────────
+  - cert-manager/cert-manager.yaml
+  - cert-manager/cluster-issuer.yaml
+
+  # ── Monitoring ─────────────────────────────────────────────────────────────
+  - monitoring/prometheus-operator.yaml
+  - monitoring/servicemonitor-capi.yaml
+  - monitoring/grafana-dashboards.yaml
+
+  # ── CAPI Cluster Namespace ────────────────────────────────────────────────
+  - namespaces/capi-clusters.yaml
+
+patches:
+  # ── CAPG identity: use GCP Workload Identity (OIDC, no secrets) ────────────
+  - target:
+      kind: Deployment
+      name: capg-controller-manager
+      namespace: capg-system
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: capg-controller-manager
+        namespace: capg-system
+      spec:
+        template:
+          metadata:
+            annotations:
+              iam.gke.io/gcp-service-account: "${GCP_CAPG_SERVICE_ACCOUNT}"
+          spec:
+            serviceAccountName: capg-controller-manager
+            nodeSelector:
+              iam.gke.io/gke-metadata-server-enabled: "true"
+            containers:
+              - name: manager
+                env:
+                  - name: GCP_PROJECT_ID
+                    value: "${GCP_PROJECT_ID}"
+                  - name: GOOGLE_APPLICATION_CREDENTIALS
+                    value: ""
+
+  # ── ArgoCD: configure SSO with Azure AD / Entra ID (centralized IdP) ──────
+  - target:
+      kind: ConfigMap
+      name: argocd-cm
+      namespace: argocd
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-cm
+        namespace: argocd
+      data:
+        url: https://argocd.internal.ms.com
+        oidc.config: |
+          name: AzureAD
+          issuer: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
+          clientID: ${ARGOCD_AZURE_CLIENT_ID}
+          clientSecret: $argocd-azure-secret:client-secret
+          requestedScopes: ["openid", "profile", "email"]
+        resource.customizations.health.cluster.x-k8s.io_Cluster: |
+          hs = {}
+          if obj.status ~= nil then
+            if obj.status.conditions ~= nil then
+              for _, condition in ipairs(obj.status.conditions) do
+                if condition.type == "Ready" and condition.status == "True" then
+                  hs.status = "Healthy"
+                  hs.message = "Cluster is ready"
+                  return hs
+                end
+              end
+            end
+          end
+          hs.status = "Progressing"
+          hs.message = "Cluster is being provisioned"
+          return hs
+
+  # ── Resource limits for CAPI controllers ──────────────────────────────────
+  - target:
+      kind: Deployment
+      name: capi-controller-manager
+      namespace: capi-system
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: capi-controller-manager
+      spec:
+        template:
+          spec:
+            containers:
+              - name: manager
+                resources:
+                  requests:
+                    cpu: 200m
+                    memory: 256Mi
+                  limits:
+                    cpu: "1"
+                    memory: 1Gi
+
+commonLabels:
+  app.kubernetes.io/part-of: kubernetes-platform
+  app.kubernetes.io/managed-by: kustomize
+  morgan-stanley.com/cluster-role: management
+  morgan-stanley.com/cloud-provider: gcp
+
+configMapGenerator:
+  - name: capi-gcp-config
+    namespace: capg-system
+    literals:
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - CLUSTER_TOPOLOGY=true
+      - EXP_MACHINE_POOL=true
+      - EXP_CAPG_GKE=true

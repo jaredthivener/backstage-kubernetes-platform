@@ -1,0 +1,1410 @@
+import { useEffect, useState } from 'react';
+import {
+  Grid,
+  Typography,
+  Card,
+  CardContent,
+  CardHeader,
+  CardActions,
+  Button,
+  Chip,
+  Avatar,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  ListItemAvatar,
+  ListItemSecondaryAction,
+  IconButton,
+  makeStyles,
+  Box,
+  Divider,
+  LinearProgress,
+  Paper,
+  Tooltip,
+} from '@material-ui/core';
+import CloudIcon from '@material-ui/icons/Cloud';
+import AddCircleOutlineIcon from '@material-ui/icons/AddCircleOutline';
+import SecurityIcon from '@material-ui/icons/Security';
+import WarningIcon from '@material-ui/icons/Warning';
+import ErrorIcon from '@material-ui/icons/Error';
+
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import GitHubIcon from '@material-ui/icons/GitHub';
+import StorageIcon from '@material-ui/icons/Storage';
+import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
+import TrendingUpIcon from '@material-ui/icons/TrendingUp';
+import TrendingDownIcon from '@material-ui/icons/TrendingDown';
+import UpdateIcon from '@material-ui/icons/Update';
+import AttachMoneyIcon from '@material-ui/icons/AttachMoney';
+import NotificationsActiveIcon from '@material-ui/icons/NotificationsActive';
+import PhoneInTalkIcon from '@material-ui/icons/PhoneInTalk';
+import TimelineIcon from '@material-ui/icons/Timeline';
+import {
+  Header,
+  Page,
+  Content,
+  StatusOK,
+  StatusWarning,
+  StatusAborted,
+  LinkButton,
+} from '@backstage/core-components';
+import { useApi } from '@backstage/core-plugin-api';
+import {
+  catalogApiRef,
+} from '@backstage/plugin-catalog-react';
+import { Entity } from '@backstage/catalog-model';
+import { Link } from 'react-router-dom';
+
+// ---------------------------------------------------------------------------
+import { HeaderBannerLogos } from '../shared/HeaderBannerLogos';
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+const useStyles = makeStyles(theme => ({
+  welcomeBanner: {
+    background: 'linear-gradient(135deg, #002F6C 0%, #0050A0 50%, #0078D4 100%)',
+    borderRadius: 12,
+    padding: theme.spacing(5, 5),
+    minHeight: 160,
+    color: '#FFFFFF',
+    marginBottom: theme.spacing(3),
+    position: 'relative',
+    overflow: 'hidden',
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      top: -50,
+      right: -50,
+      width: 200,
+      height: 200,
+      borderRadius: '50%',
+      background: 'rgba(255,255,255,0.05)',
+    },
+  },
+  welcomeTitle: {
+    fontSize: '1.8rem',
+    fontWeight: 700,
+    marginBottom: theme.spacing(0.5),
+  },
+  welcomeSubtitle: {
+    fontSize: '1rem',
+    opacity: 0.85,
+    marginBottom: theme.spacing(2),
+  },
+  statCard: {
+    textAlign: 'center',
+    padding: theme.spacing(2),
+    borderRadius: 8,
+    cursor: 'pointer',
+    transition: 'transform 0.15s, box-shadow 0.15s',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: theme.shadows[4],
+    },
+  },
+  statValue: {
+    fontSize: '2.4rem',
+    fontWeight: 700,
+    lineHeight: 1.2,
+  },
+  statLabel: {
+    fontSize: '0.8rem',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    color: theme.palette.text.secondary,
+    marginTop: theme.spacing(0.5),
+  },
+  azureChip: {
+    backgroundColor: '#0078D4',
+    color: '#fff',
+    fontWeight: 600,
+    fontSize: '0.7rem',
+  },
+  awsChip: {
+    backgroundColor: '#FF9900',
+    color: '#232F3E',
+    fontWeight: 600,
+    fontSize: '0.7rem',
+  },
+  gcpChip: {
+    backgroundColor: '#34A853',
+    color: '#fff',
+    fontWeight: 600,
+    fontSize: '0.7rem',
+  },
+  sectionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing(1),
+  },
+  clusterRow: {
+    borderLeft: `3px solid ${theme.palette.primary.main}`,
+    marginBottom: theme.spacing(1),
+    borderRadius: 4,
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+    },
+  },
+  prRow: {
+    borderLeft: `3px solid ${theme.palette.warning.main}`,
+    marginBottom: theme.spacing(1),
+    borderRadius: 4,
+  },
+  criticalFinding: {
+    borderLeft: `3px solid ${theme.palette.error.main}`,
+  },
+  highFinding: {
+    borderLeft: `3px solid #FF9800`,
+  },
+  mediumFinding: {
+    borderLeft: `3px solid ${theme.palette.warning.main}`,
+  },
+  quickAction: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: theme.spacing(2),
+    borderRadius: 8,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    textDecoration: 'none',
+    color: theme.palette.text.primary,
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+      transform: 'translateY(-2px)',
+    },
+  },
+  quickActionIcon: {
+    fontSize: 36,
+    color: theme.palette.primary.main,
+    marginBottom: theme.spacing(1),
+  },
+  emptyState: {
+    textAlign: 'center',
+    padding: theme.spacing(4),
+    color: theme.palette.text.secondary,
+  },
+  costHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: theme.spacing(2),
+  },
+  costTotal: {
+    fontSize: '2rem',
+    fontWeight: 700,
+    lineHeight: 1.2,
+  },
+  costTrendUp: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 2,
+    color: '#F44336',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+  },
+  costTrendDown: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 2,
+    color: '#4CAF50',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+  },
+  costBar: {
+    height: 8,
+    borderRadius: 4,
+    display: 'flex',
+    overflow: 'hidden',
+    marginTop: theme.spacing(1),
+    marginBottom: theme.spacing(2),
+  },
+  costBarSegment: {
+    height: '100%',
+    transition: 'width 0.3s',
+  },
+  costClusterRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing(1, 0),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    '&:last-child': {
+      borderBottom: 'none',
+    },
+  },
+  costClusterName: {
+    fontWeight: 500,
+    fontSize: '0.85rem',
+  },
+  costClusterAmount: {
+    fontWeight: 600,
+    fontSize: '0.85rem',
+  },
+  incidentRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: '10px 0',
+    borderBottom: '1px solid rgba(0,0,0,0.08)',
+    '&:last-child': {
+      borderBottom: 'none',
+    },
+  },
+  incidentSev: {
+    minWidth: 6,
+    height: 40,
+    borderRadius: 3,
+    flexShrink: 0,
+  },
+  onCallBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 12px',
+    borderRadius: 8,
+    border: '1px solid rgba(76,175,80,0.3)',
+    backgroundColor: 'rgba(76,175,80,0.05)',
+    marginBottom: 8,
+  },
+  observabilityCard: {
+    borderRadius: 12,
+    cursor: 'pointer',
+    transition: 'transform 0.15s, box-shadow 0.15s',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    },
+  },
+}));
+
+// ---------------------------------------------------------------------------
+// Helper: CSP chip
+// ---------------------------------------------------------------------------
+const CspChip = ({ csp }: { csp: string }) => {
+  const classes = useStyles();
+  const chipClass =
+    csp === 'azure' ? classes.azureChip :
+    csp === 'aws' ? classes.awsChip :
+    csp === 'gcp' ? classes.gcpChip : undefined;
+  return <Chip size="small" label={csp.toUpperCase()} className={chipClass} />;
+};
+
+// ---------------------------------------------------------------------------
+// Types for mock data (will be replaced with real API calls)
+// ---------------------------------------------------------------------------
+interface PullRequest {
+  id: number;
+  title: string;
+  repo: string;
+  author: string;
+  authorAvatar: string;
+  status: 'open' | 'review' | 'approved';
+  updatedAt: string;
+  url: string;
+}
+
+interface SecurityFinding {
+  id: string;
+  title: string;
+  severity: 'critical' | 'high' | 'medium';
+  cluster: string;
+  category: string;
+  age: string;
+}
+
+// ---------------------------------------------------------------------------
+// My Clusters Widget
+// ---------------------------------------------------------------------------
+const MyClustersWidget = () => {
+  const classes = useStyles();
+  const catalogApi = useApi(catalogApiRef);
+  const [clusters, setClusters] = useState<Entity[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchClusters = async () => {
+      try {
+        const response = await catalogApi.getEntities({
+          filter: {
+            kind: 'Resource',
+            'spec.type': 'kubernetes-cluster',
+          },
+        });
+        setClusters(response.items);
+      } catch {
+        // If catalog has no clusters yet, just show empty
+        setClusters([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClusters();
+  }, [catalogApi]);
+
+  const getCsp = (entity: Entity) =>
+    entity.metadata.annotations?.['morgan-stanley.com/csp'] ||
+    (entity as any).spec?.csp ||
+    'unknown';
+
+  const getEnv = (entity: Entity) =>
+    entity.metadata.annotations?.['morgan-stanley.com/environment'] ||
+    (entity as any).spec?.environment ||
+    '—';
+
+  const getStatus = (entity: Entity) =>
+    entity.metadata.annotations?.['morgan-stanley.com/cluster-status'] || 'running';
+
+  return (
+    <Card>
+      <CardHeader
+        title="My Clusters"
+        titleTypographyProps={{ variant: 'h6' }}
+        avatar={<StorageIcon color="primary" />}
+        action={
+          <LinkButton to="/clusters" color="primary">
+            View All
+          </LinkButton>
+        }
+      />
+      <Divider />
+      <CardContent style={{ padding: 0 }}>
+        {loading && <LinearProgress />}
+        {!loading && clusters.length === 0 && (
+          <Box className={classes.emptyState}>
+            <CloudIcon style={{ fontSize: 48, opacity: 0.3 }} />
+            <Typography variant="body1" style={{ marginTop: 8 }}>
+              No clusters found
+            </Typography>
+            <Typography variant="body2">
+              Deploy your first cluster to get started
+            </Typography>
+            <Button
+              variant="outlined"
+              color="primary"
+              size="small"
+              style={{ marginTop: 16 }}
+              component={Link}
+              to="/create"
+            >
+              Deploy Cluster
+            </Button>
+          </Box>
+        )}
+        <List disablePadding>
+          {clusters.slice(0, 6).map(cluster => {
+            const status = getStatus(cluster);
+            return (
+              <ListItem
+                key={cluster.metadata.name}
+                className={classes.clusterRow}
+                button
+                component={Link}
+                to={`/clusters/${cluster.metadata.name}`}
+              >
+                <ListItemIcon>
+                  {status === 'running' ? (
+                    <StatusOK />
+                  ) : status === 'updating' ? (
+                    <StatusWarning />
+                  ) : (
+                    <StatusAborted />
+                  )}
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Box display="flex" alignItems="center" gridGap={8}>
+                      <Typography variant="body1" style={{ fontWeight: 500 }}>
+                        {cluster.metadata.name}
+                      </Typography>
+                      <CspChip csp={getCsp(cluster)} />
+                    </Box>
+                  }
+                  secondary={`Environment: ${getEnv(cluster)} · ${cluster.metadata.description || ''}`}
+                />
+              </ListItem>
+            );
+          })}
+        </List>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Open Pull Requests Widget
+// ---------------------------------------------------------------------------
+const PullRequestsWidget = () => {
+  const classes = useStyles();
+
+  // In production, this would call the GitHub API via the proxy backend.
+  // For now we render placeholder data that demonstrates the layout.
+  const [pullRequests] = useState<PullRequest[]>([
+    {
+      id: 1,
+      title: 'feat: upgrade cluster prod-trading-aks to 1.31',
+      repo: 'kaas-clusters/prod-trading-aks',
+      author: 'jdoe',
+      authorAvatar: '',
+      status: 'review',
+      updatedAt: '2 hours ago',
+      url: '#',
+    },
+    {
+      id: 2,
+      title: 'chore: add network-policy addon to staging-risk-eks',
+      repo: 'kaas-clusters/staging-risk-eks',
+      author: 'asmith',
+      authorAvatar: '',
+      status: 'open',
+      updatedAt: '5 hours ago',
+      url: '#',
+    },
+    {
+      id: 3,
+      title: 'fix: update Prometheus remote-write endpoint',
+      repo: 'kaas-platform/monitoring-config',
+      author: 'mchen',
+      authorAvatar: '',
+      status: 'approved',
+      updatedAt: '1 day ago',
+      url: '#',
+    },
+    {
+      id: 4,
+      title: 'feat: provision new GKE cluster for wealth-mgmt',
+      repo: 'kaas-clusters/wealth-mgmt-gke',
+      author: 'jdoe',
+      authorAvatar: '',
+      status: 'open',
+      updatedAt: '1 day ago',
+      url: '#',
+    },
+  ]);
+
+  const statusIcon = (status: PullRequest['status']) => {
+    switch (status) {
+      case 'approved':
+        return <Chip size="small" label="Approved" style={{ backgroundColor: '#4CAF50', color: '#fff', fontWeight: 600, fontSize: '0.7rem' }} />;
+      case 'review':
+        return <Chip size="small" label="In Review" style={{ backgroundColor: '#FF9800', color: '#fff', fontWeight: 600, fontSize: '0.7rem' }} />;
+      default:
+        return <Chip size="small" label="Open" variant="outlined" style={{ fontWeight: 600, fontSize: '0.7rem' }} />;
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Open Pull Requests"
+        titleTypographyProps={{ variant: 'h6' }}
+        avatar={<GitHubIcon />}
+        action={
+          <Chip
+            size="small"
+            label={`${pullRequests.length} open`}
+            color="primary"
+            variant="outlined"
+          />
+        }
+      />
+      <Divider />
+      <CardContent style={{ padding: 0 }}>
+        <List disablePadding>
+          {pullRequests.map(pr => (
+            <ListItem key={pr.id} className={classes.prRow}>
+              <ListItemAvatar>
+                <Avatar style={{ width: 32, height: 32, fontSize: '0.8rem', backgroundColor: '#24292E' }}>
+                  {pr.author.slice(0, 2).toUpperCase()}
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText
+                primary={
+                  <Typography variant="body2" style={{ fontWeight: 500 }}>
+                    {pr.title}
+                  </Typography>
+                }
+                secondary={
+                  <span>
+                    {pr.repo} · {pr.author} · {pr.updatedAt}
+                  </span>
+                }
+              />
+              <ListItemSecondaryAction>
+                <Box display="flex" alignItems="center" gridGap={8}>
+                  {statusIcon(pr.status)}
+                  <Tooltip title="Open in GitHub">
+                    <IconButton size="small" href={pr.url} target="_blank" rel="noopener">
+                      <OpenInNewIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </ListItemSecondaryAction>
+            </ListItem>
+          ))}
+        </List>
+      </CardContent>
+      <CardActions>
+        <Button size="small" color="primary" endIcon={<ArrowForwardIcon />}>
+          View all pull requests
+        </Button>
+      </CardActions>
+    </Card>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Security Findings Widget
+// ---------------------------------------------------------------------------
+const SecurityFindingsWidget = () => {
+  const classes = useStyles();
+
+  // In production, these would come from a security scanning backend (Trivy, Falco, etc.)
+  const [findings] = useState<SecurityFinding[]>([
+    {
+      id: 'CVE-2026-1234',
+      title: 'Critical container image vulnerability in nginx:1.24',
+      severity: 'critical',
+      cluster: 'prod-trading-aks',
+      category: 'Container Image',
+      age: '2 days',
+    },
+    {
+      id: 'POL-5678',
+      title: 'Pod running as root in namespace payments',
+      severity: 'high',
+      cluster: 'prod-trading-aks',
+      category: 'Pod Security',
+      age: '5 days',
+    },
+    {
+      id: 'NET-9012',
+      title: 'Missing network policy for namespace analytics',
+      severity: 'high',
+      cluster: 'staging-risk-eks',
+      category: 'Network Policy',
+      age: '1 week',
+    },
+    {
+      id: 'SEC-3456',
+      title: 'TLS certificate expiring in 14 days',
+      severity: 'medium',
+      cluster: 'dev-platform-gke',
+      category: 'Certificate',
+      age: '3 days',
+    },
+    {
+      id: 'RBAC-7890',
+      title: 'Over-privileged service account in namespace ci-cd',
+      severity: 'medium',
+      cluster: 'staging-risk-eks',
+      category: 'RBAC',
+      age: '2 weeks',
+    },
+  ]);
+
+  const severityCounts = findings.reduce(
+    (acc, f) => {
+      acc[f.severity] = (acc[f.severity] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  const severityClass = (sev: string) =>
+    sev === 'critical' ? classes.criticalFinding :
+    sev === 'high' ? classes.highFinding :
+    classes.mediumFinding;
+
+  const severityIcon = (sev: string) =>
+    sev === 'critical' ? <ErrorIcon style={{ color: '#F44336' }} /> :
+    sev === 'high' ? <WarningIcon style={{ color: '#FF9800' }} /> :
+    <WarningIcon style={{ color: '#FFC107' }} />;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Security Findings"
+        titleTypographyProps={{ variant: 'h6' }}
+        avatar={<SecurityIcon color="error" />}
+        action={
+          <Box display="flex" gridGap={4}>
+            {severityCounts.critical && (
+              <Chip size="small" label={`${severityCounts.critical} Critical`} style={{ backgroundColor: '#F44336', color: '#fff', fontWeight: 600, fontSize: '0.7rem' }} />
+            )}
+            {severityCounts.high && (
+              <Chip size="small" label={`${severityCounts.high} High`} style={{ backgroundColor: '#FF9800', color: '#fff', fontWeight: 600, fontSize: '0.7rem' }} />
+            )}
+            {severityCounts.medium && (
+              <Chip size="small" label={`${severityCounts.medium} Medium`} style={{ backgroundColor: '#FFC107', color: '#000', fontWeight: 600, fontSize: '0.7rem' }} />
+            )}
+          </Box>
+        }
+      />
+      <Divider />
+      <CardContent style={{ padding: 0 }}>
+        <List disablePadding>
+          {findings.map(finding => (
+            <ListItem key={finding.id} className={severityClass(finding.severity)}>
+              <ListItemIcon>{severityIcon(finding.severity)}</ListItemIcon>
+              <ListItemText
+                primary={
+                  <Typography variant="body2" style={{ fontWeight: 500 }}>
+                    {finding.title}
+                  </Typography>
+                }
+                secondary={
+                  <span>
+                    <Chip size="small" label={finding.id} variant="outlined" style={{ marginRight: 6, fontSize: '0.65rem', height: 20 }} />
+                    {finding.cluster} · {finding.category} · {finding.age} old
+                  </span>
+                }
+              />
+            </ListItem>
+          ))}
+        </List>
+      </CardContent>
+      <CardActions>
+        <Button size="small" color="primary" endIcon={<ArrowForwardIcon />}>
+          View all findings
+        </Button>
+      </CardActions>
+    </Card>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Cluster Cost Widget
+// ---------------------------------------------------------------------------
+interface ClusterCost {
+  name: string;
+  csp: string;
+  monthlyCost: number;
+  trend: number; // percent change from previous month
+}
+
+const ClusterCostWidget = () => {
+  const classes = useStyles();
+
+  // In production, costs would come from cloud billing APIs (Azure Cost Management,
+  // AWS Cost Explorer, GCP Billing) via the proxy backend.
+  const [costs] = useState<ClusterCost[]>([
+    { name: 'prod-trading-aks', csp: 'azure', monthlyCost: 12450, trend: 3.2 },
+    { name: 'prod-settlement-aks', csp: 'azure', monthlyCost: 8920, trend: -1.5 },
+    { name: 'staging-risk-eks', csp: 'aws', monthlyCost: 6340, trend: 12.1 },
+    { name: 'prod-analytics-eks', csp: 'aws', monthlyCost: 9870, trend: -4.3 },
+    { name: 'dev-platform-gke', csp: 'gcp', monthlyCost: 3210, trend: 0.8 },
+    { name: 'staging-wealth-gke', csp: 'gcp', monthlyCost: 4560, trend: 5.6 },
+  ]);
+
+  const totalCost = costs.reduce((sum, c) => sum + c.monthlyCost, 0);
+  const avgTrend = costs.reduce((sum, c) => sum + c.trend, 0) / costs.length;
+
+  const cspTotals = costs.reduce(
+    (acc, c) => {
+      acc[c.csp] = (acc[c.csp] || 0) + c.monthlyCost;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  const cspColors: Record<string, string> = {
+    azure: '#0078D4',
+    aws: '#FF9900',
+    gcp: '#34A853',
+  };
+
+  const formatCost = (n: number) =>
+    n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toLocaleString()}`;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Cluster Costs"
+        titleTypographyProps={{ variant: 'h6' }}
+        avatar={<AttachMoneyIcon style={{ color: '#4CAF50' }} />}
+        subheader="Monthly estimated spend"
+      />
+      <Divider />
+      <CardContent>
+        {/* Total + Trend */}
+        <Box className={classes.costHeader}>
+          <Box>
+            <Typography className={classes.costTotal}>
+              ${totalCost.toLocaleString()}
+            </Typography>
+            <Typography variant="caption" color="textSecondary">
+              this month
+            </Typography>
+          </Box>
+          <Box className={avgTrend >= 0 ? classes.costTrendUp : classes.costTrendDown}>
+            {avgTrend >= 0 ? (
+              <TrendingUpIcon style={{ fontSize: 16 }} />
+            ) : (
+              <TrendingDownIcon style={{ fontSize: 16 }} />
+            )}
+            {Math.abs(avgTrend).toFixed(1)}% vs last month
+          </Box>
+        </Box>
+
+        {/* CSP Breakdown Bar */}
+        <Box display="flex" justifyContent="space-between" mb={0.5}>
+          {Object.entries(cspTotals).map(([csp, total]) => (
+            <Box key={csp} display="flex" alignItems="center" style={{ gap: 4 }}>
+              <Box
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 2,
+                  backgroundColor: cspColors[csp] || '#999',
+                }}
+              />
+              <Typography variant="caption" style={{ fontWeight: 600, textTransform: 'uppercase' }}>
+                {csp} — {formatCost(total)}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+        <Box className={classes.costBar}>
+          {Object.entries(cspTotals).map(([csp, total]) => (
+            <Box
+              key={csp}
+              className={classes.costBarSegment}
+              style={{
+                width: `${(total / totalCost) * 100}%`,
+                backgroundColor: cspColors[csp] || '#999',
+              }}
+            />
+          ))}
+        </Box>
+
+        {/* Per-Cluster Costs */}
+        <Typography variant="subtitle2" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 1.2, fontSize: '0.7rem', marginBottom: 4 }}>
+          Per Cluster
+        </Typography>
+        {costs
+          .sort((a, b) => b.monthlyCost - a.monthlyCost)
+          .map(c => (
+            <Box key={c.name} className={classes.costClusterRow}>
+              <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                <Typography className={classes.costClusterName}>{c.name}</Typography>
+                <CspChip csp={c.csp} />
+              </Box>
+              <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                <Typography className={classes.costClusterAmount}>
+                  {formatCost(c.monthlyCost)}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  className={c.trend >= 0 ? classes.costTrendUp : classes.costTrendDown}
+                >
+                  {c.trend >= 0 ? '+' : ''}{c.trend.toFixed(1)}%
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+      </CardContent>
+      <CardActions>
+        <Button size="small" color="primary" endIcon={<ArrowForwardIcon />}>
+          View detailed cost report
+        </Button>
+      </CardActions>
+    </Card>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// PagerDuty Widget (inspired by Pinterest's PinConsole PagerDuty integration)
+// ---------------------------------------------------------------------------
+interface PagerDutyIncident {
+  id: string;
+  title: string;
+  severity: 'P1' | 'P2' | 'P3' | 'P4';
+  status: 'triggered' | 'acknowledged' | 'resolved';
+  service: string;
+  cluster: string;
+  assignee: string;
+  createdAt: string;
+  url: string;
+}
+
+const PagerDutyWidget = () => {
+  const classes = useStyles();
+
+  // In production, this would use the PagerDuty REST API via proxy backend
+  const [incidents] = useState<PagerDutyIncident[]>([
+    {
+      id: 'INC-4521',
+      title: 'High API latency on prod-trading-aks',
+      severity: 'P2',
+      status: 'acknowledged',
+      service: 'trading-api',
+      cluster: 'prod-trading-aks',
+      assignee: 'jdoe',
+      createdAt: '35 min ago',
+      url: '#',
+    },
+    {
+      id: 'INC-4519',
+      title: 'etcd leader election failures on staging-risk-eks',
+      severity: 'P1',
+      status: 'triggered',
+      service: 'kubernetes-control-plane',
+      cluster: 'staging-risk-eks',
+      assignee: 'oncall-infra',
+      createdAt: '12 min ago',
+      url: '#',
+    },
+    {
+      id: 'INC-4517',
+      title: 'Pod CrashLoopBackOff in namespace wealth-api',
+      severity: 'P3',
+      status: 'acknowledged',
+      service: 'wealth-api',
+      cluster: 'staging-wealth-gke',
+      assignee: 'asmith',
+      createdAt: '2 hours ago',
+      url: '#',
+    },
+  ]);
+
+  const onCallSchedule = [
+    { role: 'Primary On-Call', name: 'Jane Doe (jdoe)', until: 'Feb 17, 09:00' },
+    { role: 'Secondary On-Call', name: 'Alex Smith (asmith)', until: 'Feb 17, 09:00' },
+  ];
+
+  const sevColor = (sev: string) =>
+    sev === 'P1' ? '#F44336' :
+    sev === 'P2' ? '#FF9800' :
+    sev === 'P3' ? '#FFC107' : '#8BC34A';
+
+  const statusLabel = (status: string) => {
+    if (status === 'triggered') return <Chip size="small" label="Triggered" style={{ backgroundColor: '#F44336', color: '#fff', fontWeight: 600, fontSize: '0.65rem', height: 20 }} />;
+    if (status === 'acknowledged') return <Chip size="small" label="Ack'd" style={{ backgroundColor: '#FF9800', color: '#fff', fontWeight: 600, fontSize: '0.65rem', height: 20 }} />;
+    return <Chip size="small" label="Resolved" style={{ backgroundColor: '#4CAF50', color: '#fff', fontWeight: 600, fontSize: '0.65rem', height: 20 }} />;
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="PagerDuty"
+        titleTypographyProps={{ variant: 'h6' }}
+        avatar={<NotificationsActiveIcon style={{ color: '#06AC38' }} />}
+        action={
+          <Chip
+            size="small"
+            label={`${incidents.filter(i => i.status !== 'resolved').length} active`}
+            style={{ backgroundColor: '#F44336', color: '#fff', fontWeight: 600, fontSize: '0.7rem' }}
+          />
+        }
+      />
+      <Divider />
+      <CardContent>
+        {/* On-call status */}
+        <Typography variant="caption" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 1.2, fontSize: '0.65rem', fontWeight: 600 }}>
+          On-Call Now
+        </Typography>
+        <Box mt={0.5} mb={2}>
+          {onCallSchedule.map(oc => (
+            <Box key={oc.role} className={classes.onCallBadge}>
+              <PhoneInTalkIcon style={{ color: '#4CAF50', fontSize: 18 }} />
+              <Box flex={1}>
+                <Typography variant="body2" style={{ fontWeight: 600, fontSize: '0.8rem' }}>{oc.name}</Typography>
+                <Typography variant="caption" color="textSecondary" style={{ fontSize: '0.7rem' }}>
+                  {oc.role} · until {oc.until}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+
+        {/* Active incidents */}
+        <Typography variant="caption" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 1.2, fontSize: '0.65rem', fontWeight: 600 }}>
+          Active Incidents
+        </Typography>
+        <Box mt={0.5}>
+          {incidents.map(inc => (
+            <Box key={inc.id} className={classes.incidentRow}>
+              <Box className={classes.incidentSev} style={{ backgroundColor: sevColor(inc.severity) }} />
+              <Box flex={1}>
+                <Box display="flex" alignItems="center" style={{ gap: 6 }} mb={0.25}>
+                  <Chip
+                    size="small"
+                    label={inc.severity}
+                    style={{
+                      backgroundColor: sevColor(inc.severity),
+                      color: inc.severity === 'P3' ? '#000' : '#fff',
+                      fontWeight: 700,
+                      fontSize: '0.6rem',
+                      height: 18,
+                      minWidth: 28,
+                    }}
+                  />
+                  {statusLabel(inc.status)}
+                </Box>
+                <Typography variant="body2" style={{ fontWeight: 500 }}>{inc.title}</Typography>
+                <Typography variant="caption" color="textSecondary">
+                  {inc.service} · {inc.cluster} · {inc.assignee} · {inc.createdAt}
+                </Typography>
+              </Box>
+              <Tooltip title="Open in PagerDuty">
+                <IconButton size="small" href={inc.url} target="_blank" rel="noopener">
+                  <OpenInNewIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          ))}
+        </Box>
+      </CardContent>
+      <CardActions>
+        <Button size="small" color="primary" endIcon={<ArrowForwardIcon />}>
+          Open PagerDuty
+        </Button>
+      </CardActions>
+    </Card>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Observability Quick-Links (Pinterest-inspired Statsboard widget)
+// ---------------------------------------------------------------------------
+const ObservabilityWidget = () => {
+  const dashboards = [
+    { name: 'Cluster Overview', cluster: 'prod-trading-aks', lastViewed: '10 min ago', url: '/monitoring' },
+    { name: 'API Gateway Latency', cluster: 'prod-trading-aks', lastViewed: '25 min ago', url: '/monitoring' },
+    { name: 'Node Resource Usage', cluster: 'prod-analytics-eks', lastViewed: '1 hour ago', url: '/monitoring' },
+    { name: 'Pod Scaling Events', cluster: 'staging-risk-eks', lastViewed: '2 hours ago', url: '/monitoring' },
+  ];
+
+  return (
+    <Card>
+      <CardHeader
+        title="Recent Dashboards"
+        titleTypographyProps={{ variant: 'h6' }}
+        avatar={<TimelineIcon style={{ color: '#9C27B0' }} />}
+        subheader="Quick access to monitoring views"
+      />
+      <Divider />
+      <CardContent style={{ padding: 0 }}>
+        <List disablePadding>
+          {dashboards.map((d, i) => (
+            <ListItem key={i} button component={Link} to={d.url}>
+              <ListItemIcon>
+                <TimelineIcon style={{ color: '#9C27B0' }} />
+              </ListItemIcon>
+              <ListItemText
+                primary={
+                  <Typography variant="body2" style={{ fontWeight: 500 }}>{d.name}</Typography>
+                }
+                secondary={`${d.cluster} · viewed ${d.lastViewed}`}
+              />
+              <ListItemSecondaryAction>
+                <Tooltip title="Open dashboard">
+                  <IconButton size="small" component={Link} to={d.url}>
+                    <OpenInNewIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </ListItemSecondaryAction>
+            </ListItem>
+          ))}
+        </List>
+      </CardContent>
+      <CardActions>
+        <Button size="small" color="primary" endIcon={<ArrowForwardIcon />} component={Link} to="/monitoring">
+          Open Monitoring
+        </Button>
+      </CardActions>
+    </Card>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Quick Actions Bar
+// ---------------------------------------------------------------------------
+const QuickActions = () => {
+  const classes = useStyles();
+
+  const actions = [
+    { icon: <CloudIcon className={classes.quickActionIcon} />, label: 'Deploy Cluster', to: '/create' },
+    { icon: <UpdateIcon className={classes.quickActionIcon} />, label: 'Upgrade Cluster', to: '/create/templates/default/cluster-upgrade' },
+    { icon: <TrendingUpIcon className={classes.quickActionIcon} />, label: 'Scale Cluster', to: '/create/templates/default/cluster-scale' },
+    { icon: <SecurityIcon className={classes.quickActionIcon} />, label: 'Request Namespace', to: '/create/templates/default/namespace-request' },
+    { icon: <AddCircleOutlineIcon className={classes.quickActionIcon} />, label: 'Manage Add-ons', to: '/create/templates/default/addon-management' },
+    { icon: <StorageIcon className={classes.quickActionIcon} />, label: 'Browse Catalog', to: '/catalog' },
+  ];
+
+  return (
+    <Paper variant="outlined" style={{ borderRadius: 12 }}>
+      <Box px={2} pt={2} pb={1}>
+        <Typography variant="subtitle2" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 1.5, fontSize: '0.7rem' }}>
+          Quick Actions
+        </Typography>
+      </Box>
+      <Grid container>
+        {actions.map(action => (
+          <Grid item xs={4} sm={2} key={action.label}>
+            <Link to={action.to} className={classes.quickAction}>
+              {action.icon}
+              <Typography variant="caption" style={{ fontWeight: 500, textAlign: 'center' }}>
+                {action.label}
+              </Typography>
+            </Link>
+          </Grid>
+        ))}
+      </Grid>
+    </Paper>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Platform Stats — per-CSP cluster cards with 7-day histogram
+// ---------------------------------------------------------------------------
+type CspHistogramDay = { day: string; delta: number };
+type CspStat = {
+  provider: string;
+  logo: string;
+  color: string;
+  count: number;
+  histogram: CspHistogramDay[];
+};
+
+const MOCK_CSP_HISTOGRAM: Record<string, CspHistogramDay[]> = {
+  azure: [
+    { day: 'Mon', delta: 2 },
+    { day: 'Tue', delta: 0 },
+    { day: 'Wed', delta: -1 },
+    { day: 'Thu', delta: 3 },
+    { day: 'Fri', delta: 1 },
+    { day: 'Sat', delta: 0 },
+    { day: 'Sun', delta: -1 },
+  ],
+  aws: [
+    { day: 'Mon', delta: 1 },
+    { day: 'Tue', delta: 2 },
+    { day: 'Wed', delta: 0 },
+    { day: 'Thu', delta: -2 },
+    { day: 'Fri', delta: 1 },
+    { day: 'Sat', delta: 0 },
+    { day: 'Sun', delta: 1 },
+  ],
+  gcp: [
+    { day: 'Mon', delta: 0 },
+    { day: 'Tue', delta: 1 },
+    { day: 'Wed', delta: 1 },
+    { day: 'Thu', delta: 0 },
+    { day: 'Fri', delta: -1 },
+    { day: 'Sat', delta: 0 },
+    { day: 'Sun', delta: 2 },
+  ],
+};
+
+const CSP_META: { key: string; provider: string; logo: string; color: string; filter: string }[] = [
+  { key: 'azure', provider: 'Azure', logo: '/logos/azure.svg', color: '#0078D4', filter: 'azure' },
+  { key: 'aws', provider: 'AWS', logo: '/logos/aws.svg', color: '#FF9900', filter: 'aws' },
+  { key: 'gcp', provider: 'Google Cloud', logo: '/logos/gcp.svg', color: '#34A853', filter: 'gcp' },
+];
+
+const MiniHistogram = ({ data, color }: { data: CspHistogramDay[]; color: string }) => {
+  const maxAbs = Math.max(...data.map(d => Math.abs(d.delta)), 1);
+  const barMaxH = 32;
+  return (
+    <Box display="flex" alignItems="flex-end" justifyContent="center" gridGap={4}>
+      {data.map(d => {
+        const h = Math.max((Math.abs(d.delta) / maxAbs) * barMaxH, 4);
+        const isNeg = d.delta < 0;
+        return (
+          <Tooltip key={d.day} title={`${d.day}: ${d.delta >= 0 ? '+' : ''}${d.delta}`} arrow>
+            <Box
+              style={{
+                width: 14,
+                height: h,
+                borderRadius: 3,
+                backgroundColor: isNeg ? '#EF5350' : color,
+                opacity: d.delta === 0 ? 0.2 : 0.9,
+                transition: 'height 0.3s ease',
+                cursor: 'default',
+              }}
+            />
+          </Tooltip>
+        );
+      })}
+    </Box>
+  );
+};
+
+const PlatformStats = () => {
+  const catalogApi = useApi(catalogApiRef);
+  const [cspStats, setCspStats] = useState<CspStat[]>([]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await catalogApi.getEntities({
+          filter: { kind: 'Resource', 'spec.type': 'kubernetes-cluster' },
+        });
+        const counts: Record<string, number> = { azure: 0, aws: 0, gcp: 0 };
+        const workloadClusters = res.items.filter(e => {
+          const tags = ((e.metadata?.tags ?? []) as string[]).map(t => t.toLowerCase());
+          return !tags.includes('management-cluster');
+        });
+        workloadClusters.forEach(e => {
+          const cspAnno = (
+            (e.metadata?.annotations?.['morgan-stanley.com/csp'] as string) ??
+            (e.metadata?.annotations?.['morgan-stanley.com/cloud-provider'] as string) ??
+            ''
+          ).toLowerCase();
+          const system = ((e.spec as any)?.system ?? '').toLowerCase();
+          const tags = ((e.metadata?.tags ?? []) as string[]).map(t => t.toLowerCase());
+          const name = (e.metadata?.name ?? '').toLowerCase();
+
+          if (cspAnno.includes('azure') || system.includes('azure') || tags.includes('azure') || name.includes('aks') || name.includes('azure'))
+            counts.azure++;
+          else if (cspAnno.includes('aws') || system.includes('aws') || tags.includes('aws') || name.includes('eks') || name.includes('aws'))
+            counts.aws++;
+          else if (cspAnno.includes('gcp') || system.includes('gcp') || tags.includes('gcp') || name.includes('gke') || name.includes('gcp'))
+            counts.gcp++;
+        });
+        setCspStats(
+          CSP_META.map(m => ({
+            provider: m.provider,
+            logo: m.logo,
+            color: m.color,
+            count: counts[m.key],
+            histogram: MOCK_CSP_HISTOGRAM[m.key],
+          })),
+        );
+      } catch {
+        setCspStats(
+          CSP_META.map(m => ({
+            provider: m.provider,
+            logo: m.logo,
+            color: m.color,
+            count: 0,
+            histogram: MOCK_CSP_HISTOGRAM[m.key],
+          })),
+        );
+      }
+    };
+    fetchStats();
+  }, [catalogApi]);
+
+  const weekNet = (h: CspHistogramDay[]) => h.reduce((s, d) => s + d.delta, 0);
+
+  return (
+    <Grid container spacing={3}>
+      {cspStats.map(csp => {
+        const net = weekNet(csp.histogram);
+        return (
+          <Grid item xs={12} sm={4} key={csp.provider}>
+            <Link
+              to={`/clusters?provider=${csp.provider.toLowerCase().replace(/\s+/g, '-')}`}
+              style={{ textDecoration: 'none', display: 'block' }}
+            >
+              <Paper
+                variant="outlined"
+                style={{
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderBottom: `3px solid ${csp.color}`,
+                  padding: '20px 24px 16px',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
+                  background: `linear-gradient(135deg, rgba(${csp.color === '#0078D4' ? '0,120,212' : csp.color === '#FF9900' ? '255,153,0' : '52,168,83'}, 0.06) 0%, transparent 60%)`,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px rgba(${csp.color === '#0078D4' ? '0,120,212' : csp.color === '#FF9900' ? '255,153,0' : '52,168,83'}, 0.2)`;
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                  (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                }}
+              >
+                {/* Top row: Logo + Provider name */}
+                <Box display="flex" alignItems="center" gridGap={12} mb={2}>
+                  <Box
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 10,
+                      backgroundColor: 'rgba(255,255,255,0.06)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <img
+                      src={csp.logo}
+                      alt={csp.provider}
+                      style={{ height: 32, width: 32, objectFit: 'contain' }}
+                    />
+                  </Box>
+                  <Typography
+                    style={{
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      color: '#fff',
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    {csp.provider}
+                  </Typography>
+                </Box>
+
+                {/* Count row */}
+                <Box display="flex" alignItems="baseline" gridGap={8} mb={1.5}>
+                  <Typography
+                    style={{
+                      fontSize: '3rem',
+                      fontWeight: 800,
+                      lineHeight: 1,
+                      color: csp.color,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {csp.count}
+                  </Typography>
+                  <Typography
+                    style={{
+                      fontSize: '0.85rem',
+                      fontWeight: 500,
+                      color: 'rgba(255,255,255,0.5)',
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    clusters
+                  </Typography>
+                </Box>
+
+                {/* Histogram + net change */}
+                <Box
+                  display="flex"
+                  alignItems="flex-end"
+                  justifyContent="space-between"
+                  style={{
+                    borderTop: '1px solid rgba(255,255,255,0.06)',
+                    paddingTop: 12,
+                  }}
+                >
+                  <MiniHistogram data={csp.histogram} color={csp.color} />
+                  <Typography
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: net >= 0 ? '#66BB6A' : '#EF5350',
+                      whiteSpace: 'nowrap',
+                      marginLeft: 8,
+                    }}
+                  >
+                    {net >= 0 ? `▲ +${net}` : `▼ ${net}`}
+                    <span style={{ fontWeight: 400, opacity: 0.7, marginLeft: 3 }}>7d</span>
+                  </Typography>
+                </Box>
+              </Paper>
+            </Link>
+          </Grid>
+        );
+      })}
+    </Grid>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Main Dashboard Page
+// ---------------------------------------------------------------------------
+export const KaasDashboard = () => {
+  const classes = useStyles();
+
+  return (
+    <Page themeId="home">
+      <Header
+        title={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            <img src="/logos/kubernetes.svg" alt="Kubernetes" style={{ height: 36, width: 36 }} />
+            Kubernetes Platform
+          </span>
+        }
+        subtitle={
+          <HeaderBannerLogos layout="dashboard" text="Morgan Stanley Kubernetes as a Service" />
+        }
+      />
+      <Content>
+        {/* Welcome Banner */}
+        <Box className={classes.welcomeBanner}>
+          <Box position="relative" zIndex={2}>
+            <Box flex={1}>
+              <Typography className={classes.welcomeTitle}>
+                Welcome to the Kubernetes Platform
+              </Typography>
+              <Typography className={classes.welcomeSubtitle}>
+                Deploy, manage, and monitor Kubernetes clusters across Azure, AWS, and GCP —
+                all from a single pane of glass.
+              </Typography>
+              <Box display="flex" gridGap={12}>
+                <Button
+                  variant="contained"
+                  style={{ backgroundColor: '#FFFFFF', color: '#002F6C', fontWeight: 600 }}
+                  startIcon={<CloudIcon />}
+                  component={Link}
+                  to="/create"
+                >
+                  Deploy a Cluster
+                </Button>
+                <Button
+                  variant="outlined"
+                  style={{ borderColor: 'rgba(255,255,255,0.5)', color: '#FFFFFF' }}
+                  component={Link}
+                  to="/docs"
+                >
+                  Read the Docs
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Platform Stats */}
+        <Box mb={3}>
+          <PlatformStats />
+        </Box>
+
+        {/* Quick Actions */}
+        <Box mb={3}>
+          <QuickActions />
+        </Box>
+
+        {/* Main Content Grid */}
+        <Grid container spacing={3}>
+          {/* Left column: Clusters + PRs + Observability */}
+          <Grid item xs={12} md={7}>
+            <Box mb={3}>
+              <MyClustersWidget />
+            </Box>
+            <Box mb={3}>
+              <PullRequestsWidget />
+            </Box>
+            <ObservabilityWidget />
+          </Grid>
+
+          {/* Right column: PagerDuty + Costs + Security */}
+          <Grid item xs={12} md={5}>
+            <Box mb={3}>
+              <PagerDutyWidget />
+            </Box>
+            <Box mb={3}>
+              <ClusterCostWidget />
+            </Box>
+            <SecurityFindingsWidget />
+          </Grid>
+        </Grid>
+      </Content>
+    </Page>
+  );
+};

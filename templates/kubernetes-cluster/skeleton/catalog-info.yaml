@@ -1,0 +1,92 @@
+{#- Backstage catalog-info for the provisioned Kubernetes cluster -#}
+{%- if values.cloudProvider == "azure" %}
+  {%- if values.environment == "dev" %}
+    {%- set dnsSuffix = "az-dev.ms.com" %}
+  {%- elif values.environment == "qa" %}
+    {%- set dnsSuffix = "az-qa.ms.com" %}
+  {%- else %}
+    {%- set dnsSuffix = "az.ms.com" %}
+  {%- endif %}
+{%- elif values.cloudProvider == "aws" %}
+  {%- if values.environment == "dev" %}
+    {%- set dnsSuffix = "aws-dev.ms.com" %}
+  {%- elif values.environment == "qa" %}
+    {%- set dnsSuffix = "aws-qa.ms.com" %}
+  {%- else %}
+    {%- set dnsSuffix = "aws.ms.com" %}
+  {%- endif %}
+{%- elif values.cloudProvider == "gcp" %}
+  {%- if values.environment == "dev" %}
+    {%- set dnsSuffix = "gcp-dev.ms.com" %}
+  {%- elif values.environment == "qa" %}
+    {%- set dnsSuffix = "gcp-qa.ms.com" %}
+  {%- else %}
+    {%- set dnsSuffix = "gcp.ms.com" %}
+  {%- endif %}
+{%- endif %}
+
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.environment }}-${{ values.clusterName }}
+  title: "${{ values.environment | upper }}-${{ values.clusterName }} Kubernetes Cluster"
+  description: |
+    Kubernetes cluster provisioned via Cluster API on ${{ values.cloudProvider | upper }}.
+    Region: ${{ values.region }} | Environment: ${{ values.environment }}
+    Owner: ${{ values.ownerTeam }}
+  tags:
+    - kubernetes
+    - cluster-api
+    - ${{ values.cloudProvider }}
+    - ${{ values.environment }}
+    - pci-dss
+  labels:
+    morgan-stanley.com/cloud-provider: ${{ values.cloudProvider }}
+    morgan-stanley.com/environment: ${{ values.environment }}
+    morgan-stanley.com/region: ${{ values.region }}
+    morgan-stanley.com/kubernetes-version: "v${{ values.kubernetesVersion }}"
+    morgan-stanley.com/cost-center: "${{ values.costCenter | default('UNASSIGNED') }}"
+    morgan-stanley.com/compliance: pci-dss
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    backstage.io/kubernetes-id: ${{ values.environment }}-${{ values.clusterName }}
+    backstage.io/kubernetes-cluster: ${{ values.environment }}-${{ values.clusterName }}
+    argocd/app-name: cluster-${{ values.environment }}-${{ values.clusterName }}
+    morgan-stanley.com/dns-suffix: {{ dnsSuffix }}
+    morgan-stanley.com/api-server: "https://api.${{ values.clusterName }}.{{ dnsSuffix }}:6443"
+    vault.hashicorp.com/role: k8s-${{ values.environment }}-${{ values.clusterName }}
+    grafana/dashboard-selector: cluster-overview
+    grafana/dashboard-url: "https://grafana.internal.ms.com/d/cluster-overview?var-cluster=${{ values.environment }}-${{ values.clusterName }}"
+    pagerduty.com/service-id: "${PAGERDUTY_SERVICE_ID}"
+  links:
+    - title: ArgoCD Application
+      url: "https://argocd.internal.ms.com/applications/cluster-${{ values.environment }}-${{ values.clusterName }}"
+      icon: dashboard
+    - title: Grafana Dashboard
+      url: "https://grafana.internal.ms.com/d/cluster-overview?var-cluster=${{ values.environment }}-${{ values.clusterName }}"
+      icon: dashboard
+    - title: Kibana Logs
+      url: "https://kibana.internal.ms.com/app/discover?cluster=${{ values.environment }}-${{ values.clusterName }}"
+      icon: search
+    - title: Runbook
+      url: "https://docs.internal.ms.com/platform/kubernetes/runbook"
+      icon: docs
+spec:
+  type: kubernetes-cluster
+  lifecycle: ${{ values.environment }}
+  owner: group:${{ values.ownerTeam }}
+  system: kubernetes-platform
+  dependsOn:
+{%- if values.enableMonitoring %}
+    - resource:prometheus-central
+{%- endif %}
+{%- if values.enableVaultIntegration %}
+    - resource:hashicorp-vault
+{%- endif %}
+{%- if values.enableIngress %}
+    - resource:nginx-ingress-controller
+{%- endif %}
+{%- if values.enableServiceMesh %}
+    - resource:istio-mesh
+{%- endif %}
+  providesApis: []

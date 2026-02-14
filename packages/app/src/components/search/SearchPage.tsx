@@ -1,4 +1,5 @@
 import { makeStyles, Theme, Grid, Paper } from '@material-ui/core';
+import { HeaderBannerLogos } from '../shared/HeaderBannerLogos';
 
 import { CatalogSearchResultListItem } from '@backstage/plugin-catalog';
 import {
@@ -46,7 +47,12 @@ const SearchPage = () => {
 
   return (
     <Page themeId="home">
-      <Header title="Search" />
+      <Header
+        title="Search"
+        subtitle={
+          <HeaderBannerLogos layout="search" />
+        }
+      />
       <Content>
         <Grid container direction="row">
           <Grid item xs={12}>

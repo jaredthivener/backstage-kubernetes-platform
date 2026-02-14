@@ -1,5 +1,6 @@
-import { Navigate, Route } from 'react-router-dom';
+import { Route } from 'react-router-dom';
 import { apiDocsPlugin, ApiExplorerPage } from '@backstage/plugin-api-docs';
+import { ToolsPage } from './components/tools/ToolsPage';
 import {
   CatalogEntityPage,
   CatalogIndexPage,
@@ -13,7 +14,6 @@ import { ScaffolderPage, scaffolderPlugin } from '@backstage/plugin-scaffolder';
 import { orgPlugin } from '@backstage/plugin-org';
 import { SearchPage } from '@backstage/plugin-search';
 import {
-  TechDocsIndexPage,
   techdocsPlugin,
   TechDocsReaderPage,
 } from '@backstage/plugin-techdocs';
@@ -24,6 +24,14 @@ import { apis } from './apis';
 import { entityPage } from './components/catalog/EntityPage';
 import { searchPage } from './components/search/SearchPage';
 import { Root } from './components/Root';
+import { KaasDashboard } from './components/dashboard/KaasDashboard';
+import { ClustersPage } from './components/clusters/ClustersPage';
+import { SecurityPage } from './components/security/SecurityPage';
+import { MonitoringPage } from './components/monitoring/MonitoringPage';
+import { ClusterDetailPage } from './components/clusters/ClusterDetailPage';
+import { CostPage } from './components/cost/CostPage';
+import { DocsPage } from './components/docs/DocsPage';
+import { SupportPage } from './components/support/SupportPage';
 
 import {
   AlertDisplay,
@@ -37,9 +45,38 @@ import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import { NotificationsPage } from '@backstage/plugin-notifications';
 import { SignalsDisplay } from '@backstage/plugin-signals';
+import {
+  UnifiedThemeProvider,
+} from '@backstage/theme';
+import LightIcon from '@material-ui/icons/WbSunny';
+import DarkIcon from '@material-ui/icons/Brightness2';
+import {
+  morganStanleyLightTheme,
+  morganStanleyDarkTheme,
+} from './theme/morganStanleyTheme';
 
 const app = createApp({
   apis,
+  themes: [
+    {
+      id: 'ms-light',
+      title: 'Morgan Stanley Light',
+      variant: 'light',
+      icon: <LightIcon />,
+      Provider: ({ children }) => (
+        <UnifiedThemeProvider theme={morganStanleyLightTheme} children={children} />
+      ),
+    },
+    {
+      id: 'ms-dark',
+      title: 'Morgan Stanley Dark',
+      variant: 'dark',
+      icon: <DarkIcon />,
+      Provider: ({ children }) => (
+        <UnifiedThemeProvider theme={morganStanleyDarkTheme} children={children} />
+      ),
+    },
+  ],
   bindRoutes({ bind }) {
     bind(catalogPlugin.externalRoutes, {
       createComponent: scaffolderPlugin.routes.root,
@@ -58,13 +95,35 @@ const app = createApp({
     });
   },
   components: {
-    SignInPage: props => <SignInPage {...props} auto providers={['guest']} />,
+    SignInPage: props => (
+      <SignInPage
+        {...props}
+        auto
+        providers={[
+          {
+            id: 'microsoft-auth-provider',
+            title: 'Morgan Stanley SSO',
+            message: 'Sign in with your Morgan Stanley Entra ID account',
+            apiRef: {
+              id: 'internal.microsoft',
+              T: '' as any,
+            } as any,
+          },
+          'guest',
+        ]}
+      />
+    ),
   },
 });
 
 const routes = (
   <FlatRoutes>
-    <Route path="/" element={<Navigate to="catalog" />} />
+    <Route path="/" element={<KaasDashboard />} />
+    <Route path="/clusters/:name" element={<ClusterDetailPage />} />
+    <Route path="/clusters" element={<ClustersPage />} />
+    <Route path="/security" element={<SecurityPage />} />
+    <Route path="/monitoring" element={<MonitoringPage />} />
+    <Route path="/cost" element={<CostPage />} />
     <Route path="/catalog" element={<CatalogIndexPage />} />
     <Route
       path="/catalog/:namespace/:kind/:name"
@@ -72,7 +131,8 @@ const routes = (
     >
       {entityPage}
     </Route>
-    <Route path="/docs" element={<TechDocsIndexPage />} />
+    <Route path="/docs" element={<DocsPage />} />
+    <Route path="/support" element={<SupportPage />} />
     <Route
       path="/docs/:namespace/:kind/:name/*"
       element={<TechDocsReaderPage />}
@@ -83,6 +143,7 @@ const routes = (
     </Route>
     <Route path="/create" element={<ScaffolderPage />} />
     <Route path="/api-docs" element={<ApiExplorerPage />} />
+    <Route path="/tools" element={<ToolsPage />} />
     <Route
       path="/catalog-import"
       element={
