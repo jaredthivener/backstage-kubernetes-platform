@@ -1138,7 +1138,7 @@ const QuickActions = () => {
     { icon: <TrendingUpIcon className={classes.quickActionIcon} />, label: 'Scale Cluster', to: '/create/templates/default/kubernetes-cluster-scale' },
     { icon: <SecurityIcon className={classes.quickActionIcon} />, label: 'Request Namespace', to: '/create/templates/default/kubernetes-namespace-request' },
     { icon: <AddCircleOutlineIcon className={classes.quickActionIcon} />, label: 'Manage Add-ons', to: '/create/templates/default/kubernetes-addon-management' },
-    { icon: <StorageIcon className={classes.quickActionIcon} />, label: 'Browse Catalog', to: '/catalog' },
+    { icon: <StorageIcon className={classes.quickActionIcon} />, label: 'Browse Add-ons', to: '/addons' },
   ];
 
   return (

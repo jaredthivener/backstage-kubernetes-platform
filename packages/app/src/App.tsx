@@ -34,6 +34,7 @@ import { DocsPage } from './components/docs/DocsPage';
 import { SupportPage } from './components/support/SupportPage';
 import { DoraMetricsPage } from './components/dora/DoraMetricsPage';
 import { AIChatBotPage } from './components/aichatbot/AIChatBotPage';
+import { AddonsPage } from './components/addons/AddonsPage';
 import { HeaderBannerLogos } from './components/shared/HeaderBannerLogos';
 
 import {
@@ -125,6 +126,7 @@ const routes = (
     </Route>
     <Route path="/docs" element={<DocsPage />} />
     <Route path="/support" element={<SupportPage />} />
+    <Route path="/addons" element={<AddonsPage />} />
     <Route path="/aichatbot" element={<AIChatBotPage />} />
     <Route path="/dora" element={<DoraMetricsPage />} />
     <Route
