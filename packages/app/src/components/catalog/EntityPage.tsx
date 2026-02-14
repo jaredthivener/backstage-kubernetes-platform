@@ -355,6 +355,9 @@ const ClusterSecurityCard = () => {
 const ClusterQuickActionsCard = () => {
   const { entity } = useEntity();
   const clusterName = entity.metadata.name;
+  const clusterRef = `resource:default/${clusterName}`;
+  const templateUrl = (templateName: string, formData: Record<string, string>) =>
+    `/create/templates/default/${templateName}?formData=${encodeURIComponent(JSON.stringify(formData))}`;
 
   return (
     <InfoCard title="Quick Actions" variant="gridItem">
@@ -365,7 +368,7 @@ const ClusterQuickActionsCard = () => {
             color="primary"
             fullWidth
             startIcon={<UpdateIcon />}
-            href={`/create/templates/default/cluster-upgrade?clusterName=${clusterName}`}
+            href={templateUrl('kubernetes-cluster-upgrade', { scope: 'single', clusterRef })}
           >
             Upgrade
           </Button>
@@ -376,7 +379,7 @@ const ClusterQuickActionsCard = () => {
             color="primary"
             fullWidth
             startIcon={<MemoryIcon />}
-            href={`/create/templates/default/cluster-scale?clusterName=${clusterName}`}
+            href={templateUrl('kubernetes-cluster-scale', { clusterRef })}
           >
             Scale
           </Button>
@@ -387,7 +390,7 @@ const ClusterQuickActionsCard = () => {
             color="primary"
             fullWidth
             startIcon={<SettingsIcon />}
-            href={`/create/templates/default/addon-management?clusterName=${clusterName}`}
+            href={templateUrl('kubernetes-addon-management', { clusterRef })}
           >
             Manage Add-ons
           </Button>
@@ -398,7 +401,7 @@ const ClusterQuickActionsCard = () => {
             color="primary"
             fullWidth
             startIcon={<DnsIcon />}
-            href={`/create/templates/default/namespace-request?clusterName=${clusterName}`}
+            href={templateUrl('kubernetes-namespace-request', { clusterRef })}
           >
             Request Namespace
           </Button>
@@ -409,7 +412,7 @@ const ClusterQuickActionsCard = () => {
             color="secondary"
             fullWidth
             startIcon={<SecurityIcon />}
-            href={`/create/templates/default/cluster-destroy?clusterName=${clusterName}`}
+            href={templateUrl('kubernetes-cluster-destroy', { clusterRef, confirmClusterName: clusterName })}
           >
             Decommission Cluster
           </Button>

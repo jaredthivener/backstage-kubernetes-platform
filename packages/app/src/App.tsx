@@ -33,6 +33,7 @@ import { CostPage } from './components/cost/CostPage';
 import { DocsPage } from './components/docs/DocsPage';
 import { SupportPage } from './components/support/SupportPage';
 import { DoraMetricsPage } from './components/dora/DoraMetricsPage';
+import { HeaderBannerLogos } from './components/shared/HeaderBannerLogos';
 
 import {
   AlertDisplay,
@@ -132,7 +133,23 @@ const routes = (
         <ReportIssue />
       </TechDocsAddons>
     </Route>
-    <Route path="/create" element={<ScaffolderPage />} />
+    <Route
+      path="/create"
+      element={
+        <ScaffolderPage
+          headerOptions={{
+            pageTitleOverride: 'Platform Workflows',
+            title: 'Platform Workflows',
+            subtitle: (
+              <HeaderBannerLogos
+                layout="dashboard"
+                text="Create and run Kubernetes platform workflows using approved templates"
+              />
+            ) as unknown as string,
+          }}
+        />
+      }
+    />
     <Route path="/api-docs" element={<ApiExplorerPage />} />
     <Route path="/tools" element={<ToolsPage />} />
     <Route

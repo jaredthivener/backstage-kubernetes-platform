@@ -388,7 +388,7 @@ const MyClustersWidget = () => {
               size="small"
               style={{ marginTop: 16 }}
               component={Link}
-              to="/create"
+              to="/create/templates/default/kubernetes-cluster-provisioner"
             >
               Deploy Cluster
             </Button>
@@ -1028,11 +1028,11 @@ const QuickActions = () => {
   const classes = useStyles();
 
   const actions = [
-    { icon: <CloudIcon className={classes.quickActionIcon} />, label: 'Deploy Cluster', to: '/create' },
-    { icon: <UpdateIcon className={classes.quickActionIcon} />, label: 'Upgrade Cluster', to: '/create/templates/default/cluster-upgrade' },
-    { icon: <TrendingUpIcon className={classes.quickActionIcon} />, label: 'Scale Cluster', to: '/create/templates/default/cluster-scale' },
-    { icon: <SecurityIcon className={classes.quickActionIcon} />, label: 'Request Namespace', to: '/create/templates/default/namespace-request' },
-    { icon: <AddCircleOutlineIcon className={classes.quickActionIcon} />, label: 'Manage Add-ons', to: '/create/templates/default/addon-management' },
+    { icon: <CloudIcon className={classes.quickActionIcon} />, label: 'Deploy Cluster', to: '/create/templates/default/kubernetes-cluster-provisioner' },
+    { icon: <UpdateIcon className={classes.quickActionIcon} />, label: 'Upgrade Cluster', to: '/create/templates/default/kubernetes-cluster-upgrade' },
+    { icon: <TrendingUpIcon className={classes.quickActionIcon} />, label: 'Scale Cluster', to: '/create/templates/default/kubernetes-cluster-scale' },
+    { icon: <SecurityIcon className={classes.quickActionIcon} />, label: 'Request Namespace', to: '/create/templates/default/kubernetes-namespace-request' },
+    { icon: <AddCircleOutlineIcon className={classes.quickActionIcon} />, label: 'Manage Add-ons', to: '/create/templates/default/kubernetes-addon-management' },
     { icon: <StorageIcon className={classes.quickActionIcon} />, label: 'Browse Catalog', to: '/catalog' },
   ];
 
@@ -1353,7 +1353,7 @@ export const KaasDashboard = () => {
                   style={{ backgroundColor: '#FFFFFF', color: '#002F6C', fontWeight: 600 }}
                   startIcon={<CloudIcon />}
                   component={Link}
-                  to="/create"
+                  to="/create/templates/default/kubernetes-cluster-provisioner"
                 >
                   Deploy a Cluster
                 </Button>

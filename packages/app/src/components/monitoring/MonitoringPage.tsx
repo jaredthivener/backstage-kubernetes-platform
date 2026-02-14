@@ -18,6 +18,8 @@ import {
   InputLabel,
   Tabs,
   Tab,
+  Tooltip,
+  Button,
 } from '@material-ui/core';
 import MemoryIcon from '@material-ui/icons/Memory';
 import SpeedIcon from '@material-ui/icons/Speed';
@@ -29,6 +31,9 @@ import ErrorIcon from '@material-ui/icons/Error';
 import TimerIcon from '@material-ui/icons/Timer';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import TrendingDownIcon from '@material-ui/icons/TrendingDown';
+import TrendingFlatIcon from '@material-ui/icons/TrendingFlat';
+import InfoIcon from '@material-ui/icons/Info';
+import RefreshIcon from '@material-ui/icons/Refresh';
 import {
   Header,
   Page,
@@ -43,11 +48,45 @@ const useStyles = makeStyles(theme => ({
     minWidth: 300,
     marginBottom: theme.spacing(3),
   },
+  quickStatsBar: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(3),
+  },
+  statCard: {
+    background: 'linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.05) 100%)',
+    borderRadius: 12,
+    border: `1px solid ${theme.palette.divider}`,
+    padding: theme.spacing(1.5),
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1.5),
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      borderColor: theme.palette.primary.main,
+      boxShadow: `0 4px 12px ${theme.palette.primary.main}15`,
+    },
+  },
   metricCard: {
     borderRadius: 12,
     height: '100%',
     position: 'relative',
     overflow: 'hidden',
+    background: 'linear-gradient(135deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0.03) 100%)',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      boxShadow: theme.shadows[4],
+    },
+  },
+  metricCardGradient: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 100,
+    height: 100,
+    opacity: 0.1,
+    borderRadius: '50%',
   },
   metricValue: {
     fontSize: '2.2rem',
@@ -68,6 +107,18 @@ const useStyles = makeStyles(theme => ({
     fontSize: '0.75rem',
     fontWeight: 600,
     marginTop: theme.spacing(0.5),
+    padding: theme.spacing(0.5, 1),
+    borderRadius: 20,
+    backgroundColor: theme.palette.action.hover,
+  },
+  trendUp: {
+    color: '#F44336',
+  },
+  trendDown: {
+    color: '#4CAF50',
+  },
+  trendFlat: {
+    color: '#2196F3',
   },
   sparkline: {
     display: 'flex',
@@ -81,6 +132,12 @@ const useStyles = makeStyles(theme => ({
     borderRadius: 2,
     transition: 'height 0.3s',
     minWidth: 4,
+  },
+  lineChart: {
+    width: '100%',
+    height: 80,
+    marginTop: theme.spacing(1),
+    position: 'relative',
   },
   gaugeContainer: {
     display: 'flex',
@@ -171,6 +228,21 @@ const useStyles = makeStyles(theme => ({
     borderRadius: 8,
     marginBottom: theme.spacing(1),
     border: `1px solid ${theme.palette.divider}`,
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      borderColor: theme.palette.primary.main,
+      backgroundColor: theme.palette.action.hover,
+    },
+  },
+  insightCard: {
+    background: 'linear-gradient(135deg, #FFF9C4 0%, #FFFDE7 100%)',
+    borderLeft: `4px solid #FBC02D`,
+    borderRadius: 8,
+    padding: theme.spacing(2),
+    marginBottom: theme.spacing(1),
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: theme.spacing(1.5),
   },
 }));
 
@@ -310,6 +382,64 @@ const alertSeverityIcon = (sev: string) => {
 const usageColor = (pct: number) =>
   pct >= 85 ? '#F44336' : pct >= 70 ? '#FF9800' : '#4CAF50';
 
+// Calculate trend direction based on history data
+const calculateTrend = (data: number[]) => {
+  if (data.length < 2) return { direction: 'flat', change: 0 };
+  const first = data.slice(0, 4).reduce((a, b) => a + b, 0) / 4;
+  const last = data.slice(-4).reduce((a, b) => a + b, 0) / 4;
+  const change = last - first;
+  const direction = Math.abs(change) < 2 ? 'flat' : change > 0 ? 'up' : 'down';
+  return { direction, change: Math.abs(Math.round(change)) };
+};
+
+const getTrendIcon = (direction: string) => {
+  if (direction === 'up') return <TrendingUpIcon style={{ fontSize: 14 }} />;
+  if (direction === 'down') return <TrendingDownIcon style={{ fontSize: 14 }} />;
+  return <TrendingFlatIcon style={{ fontSize: 14 }} />;
+};
+
+// Generate insights based on metrics
+const generateInsights = (metrics: ClusterMetrics) => {
+  const insights: { message: string; severity: 'critical' | 'warning' | 'info' }[] = [];
+  
+  const cpuTrend = calculateTrend(metrics.cpuHistory);
+  const podTrend = calculateTrend(metrics.podHistory);
+  
+  if (metrics.cpuUsage > 85) {
+    insights.push({ message: '🔴 CPU usage is critical (>85%)', severity: 'critical' });
+  } else if (metrics.cpuUsage > 75 && cpuTrend.direction === 'up') {
+    insights.push({ message: '⚠️ CPU trending upward, consider scaling soon', severity: 'warning' });
+  }
+  
+  if (metrics.memoryUsage > 85) {
+    insights.push({ message: '🔴 Memory usage is critical (>85%)', severity: 'critical' });
+  } else if (metrics.memoryUsage > 75) {
+    insights.push({ message: '⚠️ Memory utilization is high', severity: 'warning' });
+  }
+  
+  const podPct = Math.round((metrics.podCount / metrics.podCapacity) * 100);
+  if (podPct > 85) {
+    insights.push({ message: '🔴 Pod capacity nearly full (>85%)', severity: 'critical' });
+  } else if (podPct > 70 && podTrend.direction === 'up') {
+    insights.push({ message: '⚠️ Pod count growing, monitor capacity', severity: 'warning' });
+  }
+  
+  if (metrics.componentHealth.etcd === 'degraded') {
+    insights.push({ message: '⚠️ etcd performance degraded', severity: 'warning' });
+  }
+  
+  const criticalAlerts = metrics.alerts.filter(a => a.severity === 'critical').length;
+  if (criticalAlerts > 0) {
+    insights.push({ message: `🔴 ${criticalAlerts} critical alert(s) require attention`, severity: 'critical' });
+  }
+  
+  if (insights.length === 0 && metrics.alerts.length === 0) {
+    insights.push({ message: '✅ Cluster running healthy, no immediate action needed', severity: 'info' });
+  }
+  
+  return insights;
+};
+
 // ---------------------------------------------------------------------------
 // Gauge Chart
 // ---------------------------------------------------------------------------
@@ -395,8 +525,8 @@ export const MonitoringPage = () => {
         }
       />
       <Content>
-        {/* Cluster selector */}
-        <Box display="flex" alignItems="center" style={{ gap: 16 }} mb={3}>
+        {/* Cluster selector with refresh */}
+        <Box display="flex" alignItems="center" style={{ gap: 16 }} mb={3} flexWrap="wrap">
           <FormControl variant="outlined" className={classes.clusterSelector} size="small">
             <InputLabel>Select Cluster</InputLabel>
             <Select
@@ -414,11 +544,91 @@ export const MonitoringPage = () => {
               ))}
             </Select>
           </FormControl>
-          <Chip label={`${metrics.nodeCount} nodes`} variant="outlined" size="small" style={{ fontWeight: 600 }} />
-          <Chip label={`${metrics.podCount} / ${metrics.podCapacity} pods`} variant="outlined" size="small" style={{ fontWeight: 600 }} />
+          <Tooltip title="Nodes in cluster">
+            <Chip label={`${metrics.nodeCount} nodes`} variant="outlined" size="small" style={{ fontWeight: 600 }} />
+          </Tooltip>
+          <Tooltip title="Running vs total pod capacity">
+            <Chip label={`${metrics.podCount} / ${metrics.podCapacity} pods`} variant="outlined" size="small" style={{ fontWeight: 600 }} />
+          </Tooltip>
+          <Tooltip title="Refresh metrics">
+            <Button size="small" variant="outlined" startIcon={<RefreshIcon />}>Refresh</Button>
+          </Tooltip>
         </Box>
 
-        {/* Tabs */}
+        {/* Quick Stats Bar */}
+        <Box className={classes.quickStatsBar}>
+          <Tooltip title="CPU usage across all nodes">
+            <Box className={classes.statCard}>
+              <SpeedIcon style={{ fontSize: 24, color: usageColor(cpuPct) }} />
+              <Box flex={1}>
+                <Typography variant="body2" style={{ fontWeight: 600 }}>CPU</Typography>
+                <Box display="flex" alignItems="center" gridGap={8}>
+                  <Typography style={{ fontSize: '1.1rem', fontWeight: 700 }}>{cpuPct}%</Typography>
+                  <Box className={classes.metricTrend} style={{ color: calculateTrend(metrics.cpuHistory).direction === 'up' ? '#F44336' : calculateTrend(metrics.cpuHistory).direction === 'down' ? '#4CAF50' : '#2196F3' }}>
+                    {getTrendIcon(calculateTrend(metrics.cpuHistory).direction)}
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+          </Tooltip>
+          <Tooltip title="Memory usage across cluster">
+            <Box className={classes.statCard}>
+              <MemoryIcon style={{ fontSize: 24, color: usageColor(memPct) }} />
+              <Box flex={1}>
+                <Typography variant="body2" style={{ fontWeight: 600 }}>Memory</Typography>
+                <Box display="flex" alignItems="center" gridGap={8}>
+                  <Typography style={{ fontSize: '1.1rem', fontWeight: 700 }}>{memPct}%</Typography>
+                  <Box className={classes.metricTrend} style={{ color: calculateTrend(metrics.memHistory).direction === 'up' ? '#F44336' : calculateTrend(metrics.memHistory).direction === 'down' ? '#4CAF50' : '#2196F3' }}>
+                    {getTrendIcon(calculateTrend(metrics.memHistory).direction)}
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+          </Tooltip>
+          <Tooltip title="Running pods vs cluster capacity">
+            <Box className={classes.statCard}>
+              <StorageIcon style={{ fontSize: 24, color: usageColor(podPct) }} />
+              <Box flex={1}>
+                <Typography variant="body2" style={{ fontWeight: 600 }}>Pods</Typography>
+                <Box display="flex" alignItems="center" gridGap={8}>
+                  <Typography style={{ fontSize: '1.1rem', fontWeight: 700 }}>{podPct}%</Typography>
+                  <Box className={classes.metricTrend} style={{ color: calculateTrend(metrics.podHistory).direction === 'up' ? '#F44336' : calculateTrend(metrics.podHistory).direction === 'down' ? '#4CAF50' : '#2196F3' }}>
+                    {getTrendIcon(calculateTrend(metrics.podHistory).direction)}
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+          </Tooltip>
+          <Tooltip title="Active alerts and issues">
+            <Box className={classes.statCard}>
+              <WarningIcon style={{ fontSize: 24, color: metrics.alerts.length > 0 ? '#F44336' : '#4CAF50' }} />
+              <Box flex={1}>
+                <Typography variant="body2" style={{ fontWeight: 600 }}>Alerts</Typography>
+                <Typography style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+                  {metrics.alerts.length === 0 ? 'None' : metrics.alerts.length}
+                </Typography>
+              </Box>
+            </Box>
+          </Tooltip>
+        </Box>
+
+        {/* Insights Section */}
+        {generateInsights(metrics).length > 0 && (
+          <Box mb={3}>
+            <Typography variant="subtitle2" style={{ fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <InfoIcon style={{ fontSize: 18 }} /> Insights & Recommendations
+            </Typography>
+            {generateInsights(metrics).map((insight, idx) => (
+              <Box key={idx} className={classes.insightCard} style={{
+                backgroundColor: insight.severity === 'critical' ? '#FFEBEE' : insight.severity === 'warning' ? '#FFF3E0' : '#E3F2FD',
+                borderLeftColor: insight.severity === 'critical' ? '#F44336' : insight.severity === 'warning' ? '#FF9800' : '#2196F3',
+              }}>
+                <Typography variant="body2" style={{ flex: 1, lineHeight: 1.4 }}>{insight.message}</Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+
         <Paper variant="outlined" style={{ borderRadius: 12 }}>
           <Tabs
             value={tabValue}
@@ -441,13 +651,21 @@ export const MonitoringPage = () => {
                 <Grid item xs={12} sm={4}>
                   <Card className={classes.metricCard} variant="outlined">
                     <CardContent>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                          <SpeedIcon style={{ color: usageColor(cpuPct), fontSize: 20 }} />
+                          <Typography variant="subtitle2" style={{ fontWeight: 600 }}>CPU Usage</Typography>
+                        </Box>
+                        <Box className={classes.metricTrend} style={{ color: calculateTrend(metrics.cpuHistory).direction === 'up' ? '#F44336' : calculateTrend(metrics.cpuHistory).direction === 'down' ? '#4CAF50' : '#2196F3' }}>
+                          {getTrendIcon(calculateTrend(metrics.cpuHistory).direction)}
+                          {calculateTrend(metrics.cpuHistory).direction === 'up' && `+${calculateTrend(metrics.cpuHistory).change}%`}
+                          {calculateTrend(metrics.cpuHistory).direction === 'down' && `-${calculateTrend(metrics.cpuHistory).change}%`}
+                          {calculateTrend(metrics.cpuHistory).direction === 'flat' && 'Stable'}
+                        </Box>
+                      </Box>
                       <Box display="flex" alignItems="center" justifyContent="space-between">
                         <Box>
-                          <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                            <SpeedIcon style={{ color: usageColor(cpuPct) }} />
-                            <Typography variant="subtitle2">CPU Usage</Typography>
-                          </Box>
-                          <Typography className={classes.metricValue} style={{ color: usageColor(cpuPct), marginTop: 8 }}>
+                          <Typography className={classes.metricValue} style={{ color: usageColor(cpuPct) }}>
                             {cpuPct}%
                           </Typography>
                           <Typography className={classes.metricLabel}>of cluster capacity</Typography>
@@ -463,13 +681,21 @@ export const MonitoringPage = () => {
                 <Grid item xs={12} sm={4}>
                   <Card className={classes.metricCard} variant="outlined">
                     <CardContent>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                          <MemoryIcon style={{ color: usageColor(memPct), fontSize: 20 }} />
+                          <Typography variant="subtitle2" style={{ fontWeight: 600 }}>Memory Usage</Typography>
+                        </Box>
+                        <Box className={classes.metricTrend} style={{ color: calculateTrend(metrics.memHistory).direction === 'up' ? '#F44336' : calculateTrend(metrics.memHistory).direction === 'down' ? '#4CAF50' : '#2196F3' }}>
+                          {getTrendIcon(calculateTrend(metrics.memHistory).direction)}
+                          {calculateTrend(metrics.memHistory).direction === 'up' && `+${calculateTrend(metrics.memHistory).change}%`}
+                          {calculateTrend(metrics.memHistory).direction === 'down' && `-${calculateTrend(metrics.memHistory).change}%`}
+                          {calculateTrend(metrics.memHistory).direction === 'flat' && 'Stable'}
+                        </Box>
+                      </Box>
                       <Box display="flex" alignItems="center" justifyContent="space-between">
                         <Box>
-                          <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                            <MemoryIcon style={{ color: usageColor(memPct) }} />
-                            <Typography variant="subtitle2">Memory Usage</Typography>
-                          </Box>
-                          <Typography className={classes.metricValue} style={{ color: usageColor(memPct), marginTop: 8 }}>
+                          <Typography className={classes.metricValue} style={{ color: usageColor(memPct) }}>
                             {memPct}%
                           </Typography>
                           <Typography className={classes.metricLabel}>of cluster capacity</Typography>
@@ -485,13 +711,21 @@ export const MonitoringPage = () => {
                 <Grid item xs={12} sm={4}>
                   <Card className={classes.metricCard} variant="outlined">
                     <CardContent>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                        <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                          <StorageIcon style={{ color: usageColor(podPct), fontSize: 20 }} />
+                          <Typography variant="subtitle2" style={{ fontWeight: 600 }}>Pod Usage</Typography>
+                        </Box>
+                        <Box className={classes.metricTrend} style={{ color: calculateTrend(metrics.podHistory).direction === 'up' ? '#F44336' : calculateTrend(metrics.podHistory).direction === 'down' ? '#4CAF50' : '#2196F3' }}>
+                          {getTrendIcon(calculateTrend(metrics.podHistory).direction)}
+                          {calculateTrend(metrics.podHistory).direction === 'up' && `+${calculateTrend(metrics.podHistory).change}`}
+                          {calculateTrend(metrics.podHistory).direction === 'down' && `-${calculateTrend(metrics.podHistory).change}`}
+                          {calculateTrend(metrics.podHistory).direction === 'flat' && 'Stable'}
+                        </Box>
+                      </Box>
                       <Box display="flex" alignItems="center" justifyContent="space-between">
                         <Box>
-                          <Box display="flex" alignItems="center" style={{ gap: 8 }}>
-                            <StorageIcon style={{ color: usageColor(podPct) }} />
-                            <Typography variant="subtitle2">Pod Usage</Typography>
-                          </Box>
-                          <Typography className={classes.metricValue} style={{ color: usageColor(podPct), marginTop: 8 }}>
+                          <Typography className={classes.metricValue} style={{ color: usageColor(podPct) }}>
                             {metrics.podCount}
                           </Typography>
                           <Typography className={classes.metricLabel}>of {metrics.podCapacity} capacity</Typography>
@@ -506,48 +740,61 @@ export const MonitoringPage = () => {
               </Grid>
 
               {/* Secondary metrics */}
+              <Typography variant="h6" style={{ fontWeight: 600, marginBottom: 16 }}>Network & Latency</Typography>
               <Grid container spacing={2} style={{ marginBottom: 24 }}>
                 <Grid item xs={6} sm={3}>
                   <Card variant="outlined" className={classes.metricCard}>
-                    <CardContent style={{ textAlign: 'center' }}>
-                      <NetworkCheckIcon style={{ color: '#2196F3', fontSize: 28 }} />
-                      <Typography className={classes.metricValue} style={{ fontSize: '1.5rem', marginTop: 4 }}>
+                    <CardContent>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                        <NetworkCheckIcon style={{ color: '#2196F3', fontSize: 24 }} />
+                      </Box>
+                      <Typography variant="body2" color="textSecondary" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Network In</Typography>
+                      <Typography style={{ fontSize: '1.4rem', fontWeight: 700, color: '#2196F3', marginTop: 8 }}>
                         {metrics.networkIn} Gbps
                       </Typography>
-                      <Typography className={classes.metricLabel}>Network In</Typography>
+                      <LinearProgress variant="determinate" value={(metrics.networkIn / 10) * 100} style={{ borderRadius: 4, marginTop: 8 }} />
                     </CardContent>
                   </Card>
                 </Grid>
                 <Grid item xs={6} sm={3}>
                   <Card variant="outlined" className={classes.metricCard}>
-                    <CardContent style={{ textAlign: 'center' }}>
-                      <NetworkCheckIcon style={{ color: '#9C27B0', fontSize: 28 }} />
-                      <Typography className={classes.metricValue} style={{ fontSize: '1.5rem', marginTop: 4 }}>
+                    <CardContent>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                        <NetworkCheckIcon style={{ color: '#9C27B0', fontSize: 24 }} />
+                      </Box>
+                      <Typography variant="body2" color="textSecondary" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Network Out</Typography>
+                      <Typography style={{ fontSize: '1.4rem', fontWeight: 700, color: '#9C27B0', marginTop: 8 }}>
                         {metrics.networkOut} Gbps
                       </Typography>
-                      <Typography className={classes.metricLabel}>Network Out</Typography>
+                      <LinearProgress variant="determinate" value={(metrics.networkOut / 10) * 100} style={{ borderRadius: 4, marginTop: 8 }} />
                     </CardContent>
                   </Card>
                 </Grid>
                 <Grid item xs={6} sm={3}>
                   <Card variant="outlined" className={classes.metricCard}>
-                    <CardContent style={{ textAlign: 'center' }}>
-                      <TimerIcon style={{ color: metrics.apiLatencyP99 > 150 ? '#FF9800' : '#4CAF50', fontSize: 28 }} />
-                      <Typography className={classes.metricValue} style={{ fontSize: '1.5rem', marginTop: 4 }}>
+                    <CardContent>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                        <TimerIcon style={{ color: metrics.apiLatencyP99 > 150 ? '#FF9800' : '#4CAF50', fontSize: 24 }} />
+                      </Box>
+                      <Typography variant="body2" color="textSecondary" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>API P99 Latency</Typography>
+                      <Typography style={{ fontSize: '1.4rem', fontWeight: 700, color: metrics.apiLatencyP99 > 150 ? '#FF9800' : '#4CAF50', marginTop: 8 }}>
                         {metrics.apiLatencyP99}ms
                       </Typography>
-                      <Typography className={classes.metricLabel}>API P99 Latency</Typography>
+                      <LinearProgress variant="determinate" value={Math.min((metrics.apiLatencyP99 / 200) * 100, 100)} style={{ borderRadius: 4, marginTop: 8 }} />
                     </CardContent>
                   </Card>
                 </Grid>
                 <Grid item xs={6} sm={3}>
                   <Card variant="outlined" className={classes.metricCard}>
-                    <CardContent style={{ textAlign: 'center' }}>
-                      <TimerIcon style={{ color: metrics.etcdLatency > 15 ? '#FF9800' : '#4CAF50', fontSize: 28 }} />
-                      <Typography className={classes.metricValue} style={{ fontSize: '1.5rem', marginTop: 4 }}>
+                    <CardContent>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                        <TimerIcon style={{ color: metrics.etcdLatency > 15 ? '#FF9800' : '#4CAF50', fontSize: 24 }} />
+                      </Box>
+                      <Typography variant="body2" color="textSecondary" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>etcd Latency</Typography>
+                      <Typography style={{ fontSize: '1.4rem', fontWeight: 700, color: metrics.etcdLatency > 15 ? '#FF9800' : '#4CAF50', marginTop: 8 }}>
                         {metrics.etcdLatency}ms
                       </Typography>
-                      <Typography className={classes.metricLabel}>etcd Latency</Typography>
+                      <LinearProgress variant="determinate" value={Math.min((metrics.etcdLatency / 30) * 100, 100)} style={{ borderRadius: 4, marginTop: 8 }} />
                     </CardContent>
                   </Card>
                 </Grid>
@@ -565,19 +812,26 @@ export const MonitoringPage = () => {
                   <Divider />
                   <CardContent>
                     {metrics.alerts.map((alert, i) => (
-                      <Box key={i} className={classes.alertItem}>
+                      <Box 
+                        key={i} 
+                        className={classes.alertItem}
+                        style={{
+                          borderLeft: `4px solid ${alert.severity === 'critical' ? '#F44336' : alert.severity === 'warning' ? '#FF9800' : '#2196F3'}`,
+                          backgroundColor: alert.severity === 'critical' ? 'rgba(244, 67, 54, 0.02)' : alert.severity === 'warning' ? 'rgba(255, 152, 0, 0.02)' : 'rgba(33, 150, 243, 0.02)',
+                        }}
+                      >
                         {alertSeverityIcon(alert.severity)}
                         <Box flex={1}>
-                          <Typography variant="body2" style={{ fontWeight: 500 }}>{alert.message}</Typography>
-                          <Typography variant="caption" color="textSecondary">Since {alert.since}</Typography>
+                          <Typography variant="body2" style={{ fontWeight: 600, fontSize: '0.95rem' }}>{alert.message}</Typography>
+                          <Typography variant="caption" color="textSecondary" style={{ fontSize: '0.8rem', marginTop: 2 }}>Since {alert.since}</Typography>
                         </Box>
                         <Chip
                           size="small"
-                          label={alert.severity}
+                          label={alert.severity.toUpperCase()}
                           style={{
-                            fontWeight: 600,
-                            fontSize: '0.65rem',
-                            height: 20,
+                            fontWeight: 700,
+                            fontSize: '0.6rem',
+                            height: 22,
                             backgroundColor: alert.severity === 'critical' ? '#F44336' : alert.severity === 'warning' ? '#FF9800' : '#2196F3',
                             color: '#fff',
                           }}

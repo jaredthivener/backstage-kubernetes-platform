@@ -273,6 +273,8 @@ export const ClustersPage = () => {
   const classes = useStyles();
   const catalogApi = useApi(catalogApiRef);
   const location = useLocation();
+  const templateUrl = (templateName: string, formData: Record<string, string>) =>
+    `/create/templates/default/${templateName}?formData=${encodeURIComponent(JSON.stringify(formData))}`;
   const [clusters, setClusters] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -429,7 +431,7 @@ export const ClustersPage = () => {
               color="primary"
               startIcon={<UpdateIcon />}
               component={Link}
-              to="/create/templates/default/cluster-upgrade"
+              to="/create/templates/default/kubernetes-cluster-upgrade"
             >
               Upgrade
             </Button>
@@ -438,7 +440,7 @@ export const ClustersPage = () => {
               color="primary"
               startIcon={<TrendingUpIcon />}
               component={Link}
-              to="/create/templates/default/cluster-scale"
+              to="/create/templates/default/kubernetes-cluster-scale"
             >
               Scale
             </Button>
@@ -447,7 +449,7 @@ export const ClustersPage = () => {
               color="secondary"
               startIcon={<DeleteIcon />}
               component={Link}
-              to="/create/templates/default/cluster-destroy"
+              to="/create/templates/default/kubernetes-cluster-destroy"
             >
               Destroy
             </Button>
@@ -627,7 +629,7 @@ export const ClustersPage = () => {
                         <IconButton
                           size="small"
                           component={Link}
-                          to={`/create/templates/default/addon-management?clusterName=${cluster.metadata.name}`}
+                          to={templateUrl('kubernetes-addon-management', { clusterRef: `resource:default/${cluster.metadata.name}` })}
                         >
                           <SettingsIcon fontSize="small" />
                         </IconButton>

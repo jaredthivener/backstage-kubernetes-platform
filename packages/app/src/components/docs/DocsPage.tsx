@@ -13,6 +13,8 @@ import {
   InputBase,
   Paper,
   Divider,
+  IconButton,
+  Tooltip,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
 import MenuBookIcon from '@material-ui/icons/MenuBook';
@@ -26,8 +28,11 @@ import SettingsIcon from '@material-ui/icons/Settings';
 import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline';
 import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
 import StarIcon from '@material-ui/icons/Star';
+import StarBorderIcon from '@material-ui/icons/StarBorder';
 import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
+import IconButton from '@material-ui/core/IconButton';
+import Tooltip from '@material-ui/core/Tooltip';
 import {
   Header,
   Page,
@@ -149,10 +154,18 @@ const useStyles = makeStyles(theme => ({
     borderLeft: '4px solid',
     transition: 'all 0.2s',
     cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 240,
     '&:hover': {
       transform: 'translateY(-2px)',
       boxShadow: theme.shadows[4],
     },
+  },
+  quickStartCardContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
   },
   quickStartTitle: {
     fontWeight: 600,
@@ -338,14 +351,24 @@ const quickStarts: QuickStart[] = [
 ];
 
 const popularArticles = [
-  { title: 'Multi-cluster Networking with Cilium', views: '2.4k', category: 'Networking' },
-  { title: 'Cost Optimization: Right-sizing Node Pools', views: '1.8k', category: 'Operations' },
-  { title: 'Migrating from EKS to AKS', views: '1.5k', category: 'Migration' },
-  { title: 'PCI-DSS Compliance for Kubernetes', views: '1.3k', category: 'Security' },
-  { title: 'Canary Deployments with ArgoCD Rollouts', views: '1.1k', category: 'GitOps' },
-  { title: 'GPU Node Pools for ML Workloads', views: '980', category: 'AI/ML' },
-  { title: 'Troubleshooting etcd Performance', views: '870', category: 'Operations' },
+  { id: 'cilium-networking', title: 'Multi-cluster Networking with Cilium', views: '2.4k', category: 'Networking' },
+  { id: 'cost-optimization', title: 'Cost Optimization: Right-sizing Node Pools', views: '1.8k', category: 'Operations' },
+  { id: 'migration-eks-aks', title: 'Migrating from EKS to AKS', views: '1.5k', category: 'Migration' },
+  { id: 'pci-dss', title: 'PCI-DSS Compliance for Kubernetes', views: '1.3k', category: 'Security' },
+  { id: 'canary-deployments', title: 'Canary Deployments with ArgoCD Rollouts', views: '1.1k', category: 'GitOps' },
+  { id: 'gpu-pools', title: 'GPU Node Pools for ML Workloads', views: '980', category: 'AI/ML' },
+  { id: 'etcd-troubleshooting', title: 'Troubleshooting etcd Performance', views: '870', category: 'Operations' },
 ];
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+interface Favorite {
+  id: string;
+  title: string;
+  views: string;
+  category: string;
+}
 
 // ---------------------------------------------------------------------------
 // Main Docs Page
@@ -353,6 +376,20 @@ const popularArticles = [
 export const DocsPage = () => {
   const classes = useStyles();
   const [searchQuery, setSearchQuery] = useState('');
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  const isFavorited = (articleId: string): boolean => {
+    return favorites.some(fav => fav.id === articleId);
+  };
+
+  const toggleFavorite = (article: { id: string; title: string; views: string; category: string }) => {
+    if (isFavorited(article.id)) {
+      setFavorites(favorites.filter(fav => fav.id !== article.id));
+    } else {
+      setFavorites([...favorites, article]);
+    }
+  };
 
   const filteredCategories = searchQuery
     ? docCategories.filter(c =>
@@ -436,7 +473,7 @@ export const DocsPage = () => {
                   component={Link}
                   {...({ to: qs.to, style: { textDecoration: 'none', borderLeftColor: qs.color } } as any)}
                 >
-                  <CardContent>
+                  <CardContent className={classes.quickStartCardContent}>
                     <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
                       <Chip
                         size="small"
@@ -455,10 +492,24 @@ export const DocsPage = () => {
                       </Box>
                     </Box>
                     <Typography className={classes.quickStartTitle}>{qs.title}</Typography>
-                    <Typography variant="body2" color="textSecondary" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                    <Typography variant="body2" color="textSecondary" style={{ fontSize: '0.8rem', marginTop: 4, flex: 1 }}>
                       {qs.description}
                     </Typography>
                   </CardContent>
+                  <CardActions style={{ justifyContent: 'flex-end', paddingTop: 0 }}>
+                    <Tooltip title={`${isFavorited(qs.title) ? 'Remove' : 'Add'} to bookmarks`}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleFavorite({ id: qs.title, title: qs.title, views: '', category: 'Quick Start' });
+                        }}
+                        style={{ color: isFavorited(qs.title) ? '#FFB300' : '#999' }}
+                      >
+                        {isFavorited(qs.title) ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+                      </IconButton>
+                    </Tooltip>
+                  </CardActions>
                 </Card>
               </Grid>
             ))}
@@ -502,47 +553,83 @@ export const DocsPage = () => {
 
           {/* Popular Articles Sidebar */}
           <Grid item xs={12} md={4}>
-            <Typography className={classes.sectionHeader}>
-              <Box display="flex" alignItems="center" gridGap={8}>
-                <StarIcon style={{ color: '#FFB300' }} /> Popular Articles
-              </Box>
-            </Typography>
-            <Typography className={classes.sectionSubheader}>
-              Most-read this month
-            </Typography>
-            <Card style={{ borderRadius: 12 }}>
-              <CardContent>
-                {popularArticles.map((article, i) => (
-                  <Box key={article.title} className={classes.popularArticle}>
-                    <Box
-                      className={classes.popularRank}
-                      style={{
-                        backgroundColor: i < 3 ? '#1976D2' : '#E0E0E0',
-                        color: i < 3 ? '#fff' : '#666',
-                      }}
-                    >
-                      {i + 1}
-                    </Box>
-                    <Box flex={1}>
-                      <Typography variant="body2" style={{ fontWeight: 600, fontSize: '0.85rem' }}>
-                        {article.title}
-                      </Typography>
-                      <Box display="flex" alignItems="center" gridGap={8} mt={0.5}>
-                        <Chip
-                          size="small"
-                          label={article.category}
-                          variant="outlined"
-                          style={{ fontSize: '0.6rem', height: 18 }}
-                        />
-                        <Typography variant="caption" color="textSecondary">
-                          {article.views} views
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+              <Typography className={classes.sectionHeader}>
+                <Box display="flex" alignItems="center" gridGap={8}>
+                  <StarIcon style={{ color: '#FFB300' }} /> {showFavoritesOnly ? 'Bookmarked Articles' : 'Popular Articles'}
+                </Box>
+              </Typography>
+            </Box>
+            <Box display="flex" alignItems="center" gridGap={8} mb={2}>
+              <Chip
+                label={`Popular (${popularArticles.length})`}
+                onClick={() => setShowFavoritesOnly(false)}
+                color={!showFavoritesOnly ? 'primary' : 'default'}
+                variant={!showFavoritesOnly ? 'default' : 'outlined'}
+                size="small"
+              />
+              <Chip
+                label={`Bookmarked (${favorites.length})`}
+                onClick={() => setShowFavoritesOnly(true)}
+                color={showFavoritesOnly ? 'primary' : 'default'}
+                variant={showFavoritesOnly ? 'default' : 'outlined'}
+                size="small"
+                disabled={favorites.length === 0}
+              />
+            </Box>
+            {showFavoritesOnly && favorites.length === 0 ? (
+              <Card style={{ borderRadius: 12, textAlign: 'center', padding: '24px' }}>
+                <StarBorderIcon style={{ fontSize: 32, color: '#ccc', marginBottom: 8 }} />
+                <Typography color="textSecondary">
+                  No bookmarked articles yet. Click the star icon to save articles.
+                </Typography>
+              </Card>
+            ) : (
+              <Card style={{ borderRadius: 12 }}>
+                <CardContent>
+                  {(showFavoritesOnly ? favorites : popularArticles).map((article, i) => (
+                    <Box key={article.id || article.title} className={classes.popularArticle}>
+                      {!showFavoritesOnly && (
+                        <Box
+                          className={classes.popularRank}
+                          style={{
+                            backgroundColor: i < 3 ? '#1976D2' : '#E0E0E0',
+                            color: i < 3 ? '#fff' : '#666',
+                          }}
+                        >
+                          {i + 1}
+                        </Box>
+                      )}
+                      <Box flex={1}>
+                        <Typography variant="body2" style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                          {article.title}
                         </Typography>
+                        <Box display="flex" alignItems="center" gridGap={8} mt={0.5}>
+                          <Chip
+                            size="small"
+                            label={article.category}
+                            variant="outlined"
+                            style={{ fontSize: '0.6rem', height: 18 }}
+                          />
+                          <Typography variant="caption" color="textSecondary">
+                            {article.views} views
+                          </Typography>
+                        </Box>
                       </Box>
+                      <Tooltip title={isFavorited(article.id) ? 'Remove bookmark' : 'Add bookmark'}>
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleFavorite(article)}
+                          style={{ color: isFavorited(article.id) ? '#FFB300' : '#999' }}
+                        >
+                          {isFavorited(article.id) ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
                     </Box>
-                  </Box>
-                ))}
-              </CardContent>
-            </Card>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Contributing */}
             <Box mt={3}>

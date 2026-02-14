@@ -2,13 +2,12 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: kubernetes-cluster-upgrade
-  title: Upgrade Kubernetes Cluster
+  title: Kubernetes Cluster Upgrade Orchestrator
   description: |
-    Upgrade the Kubernetes version on an existing cluster. The upgrade is
-    performed via GitOps — a pull request is opened against the cluster's
-    GitOps repository to update the Kubernetes version in the Cluster API
-    manifest. ArgoCD syncs the change and the cloud provider performs a
-    controlled upgrade of the control plane and node pools.
+    Run polished, guided upgrades for one or many Kubernetes clusters.
+    This workflow opens GitOps pull requests with a consistent upgrade plan,
+    strategy, and maintenance window so platform teams can execute safe,
+    repeatable Kubernetes version rollouts.
   tags:
     - kubernetes
     - cluster-api
@@ -35,15 +34,28 @@ spec:
   # Parameters – multi-step wizard
   # ---------------------------------------------------------------------------
   parameters:
-    # ── Step 1: Select Cluster ───────────────────────────────────────────────
-    - title: Select Cluster
+    # ── Step 1: Upgrade Scope ────────────────────────────────────────────────
+    - title: Upgrade Scope
       required:
-        - clusterRef
+        - scope
       properties:
-        clusterRef:
-          title: Target Cluster
+        scope:
+          title: Scope
           type: string
-          description: Select the Kubernetes cluster to upgrade from the catalog.
+          default: single
+          description: Choose whether to upgrade one cluster or run a coordinated bulk upgrade.
+          enum:
+            - single
+            - bulk
+          enumNames:
+            - Single Cluster
+            - Multiple Clusters (Bulk)
+          ui:widget: radio
+
+        clusterRef:
+          title: Target Cluster (Single)
+          type: string
+          description: Select one cluster for a targeted upgrade.
           ui:field: EntityPicker
           ui:options:
             catalogFilter:
@@ -51,6 +63,36 @@ spec:
               spec.type: kubernetes-cluster
             defaultKind: Resource
           ui:autofocus: true
+
+        clusterRefs:
+          title: Target Clusters (Bulk)
+          type: array
+          description: |
+            Add one or more cluster entity refs in this format:
+            `resource:default/<cluster-name>`.
+          minItems: 1
+          uniqueItems: true
+          items:
+            title: Cluster Entity Ref
+            type: string
+            pattern: '^resource:[a-z0-9-]+\/[a-z0-9-]+$'
+            examples:
+              - resource:default/prod-trading-aks
+              - resource:default/staging-risk-eks
+
+      dependencies:
+        scope:
+          oneOf:
+            - properties:
+                scope:
+                  const: single
+              required:
+                - clusterRef
+            - properties:
+                scope:
+                  const: bulk
+              required:
+                - clusterRefs
 
     # ── Step 2: Upgrade Configuration ────────────────────────────────────────
     - title: Upgrade Configuration
@@ -62,19 +104,17 @@ spec:
         targetVersion:
           title: Target Kubernetes Version
           type: string
-          description: The Kubernetes version to upgrade to.
+          description: Kubernetes target version for all selected clusters.
+          default: '1.31'
           enum:
-            - '1.28'
-            - '1.29'
-            - '1.30'
             - '1.31'
-            - '1.32'
+            - '1.33'
+            - '1.35'
+          ui:widget: radio
           enumNames:
-            - '1.28 (LTS — security fixes only)'
-            - '1.29 (Stable)'
-            - '1.30 (Stable)'
-            - '1.31 (Current)'
-            - '1.32 (Latest)'
+            - '1.31 (Supported)'
+            - '1.33 (Supported)'
+            - '1.35 (Supported)'
 
         upgradeStrategy:
           title: Upgrade Strategy
@@ -94,11 +134,13 @@ spec:
           title: Maintenance Window
           type: string
           description: Preferred maintenance window for the upgrade.
+          default: weekend-night
           enum:
             - weekend-night
             - weekday-night
             - saturday-morning
             - immediate
+          ui:widget: radio
           enumNames:
             - Weekend Night (Sat 00:00–06:00 UTC)
             - Weekday Night (Tue–Thu 00:00–04:00 UTC)
@@ -113,16 +155,22 @@ spec:
             Upgrade the control plane only — defer node pool upgrades.
             Useful for staged rollouts across environments.
 
+        requirePlatformApproval:
+          title: Require Platform Approval Before Merge
+          type: boolean
+          default: true
+          description: Add a mandatory platform approval gate in the PR checklist.
+
     # ── Step 3: Confirmation ─────────────────────────────────────────────────
     - title: Review & Confirm
       required:
-        - prBranch
+        - prBranchPrefix
       properties:
-        prBranch:
-          title: Pull Request Branch Name
+        prBranchPrefix:
+          title: Pull Request Branch Prefix
           type: string
           default: upgrade/kubernetes-version
-          description: Branch name for the upgrade pull request.
+          description: Prefix for generated branch names.
           pattern: '^[a-z0-9][a-z0-9/_-]{2,60}$'
           ui:help: 'Lowercase alphanumeric, hyphens, underscores, and slashes.'
 
@@ -138,74 +186,66 @@ spec:
   # Steps
   # ---------------------------------------------------------------------------
   steps:
-    # ── 1. Fetch cluster info from catalog ───────────────────────────────────
-    - id: catalog-fetch
-      name: Fetch cluster details from catalog
-      action: catalog:fetch
-      input:
-        entityRef: ${{ parameters.clusterRef }}
-
-    # ── 2. Fetch & render the upgrade patch ──────────────────────────────────
-    - id: fetch-template
+    # ── 1. Render one patch per cluster ──────────────────────────────────────
+    - id: render-upgrade-patches
       name: Render upgrade manifests
+      each: "${{ parameters.scope === 'single' ? [parameters.clusterRef] : parameters.clusterRefs }}"
       action: fetch:template
       input:
         url: ./skeleton
-        targetPath: ./upgrade-patch
+        targetPath: ./upgrade-patch-${{ each.index }}
         values:
-          clusterRef: ${{ parameters.clusterRef }}
+          clusterRef: ${{ each.value }}
+          clusterName: ${{ each.value | replace('resource:default/', '') }}
           targetVersion: ${{ parameters.targetVersion }}
           upgradeStrategy: ${{ parameters.upgradeStrategy }}
           maintenanceWindow: ${{ parameters.maintenanceWindow }}
           skipNodeUpgrade: ${{ parameters.skipNodeUpgrade }}
+          requirePlatformApproval: ${{ parameters.requirePlatformApproval }}
+          additionalNotes: ${{ parameters.additionalNotes }}
 
-    # ── 3. Open PR against the cluster's GitOps repo ─────────────────────────
-    - id: publish-pr
-      name: Open upgrade pull request
+    # ── 2. Open one PR per selected cluster ──────────────────────────────────
+    - id: publish-prs
+      name: Open upgrade pull requests
+      each: "${{ parameters.scope === 'single' ? [parameters.clusterRef] : parameters.clusterRefs }}"
       action: publish:github:pull-request
       input:
-        repoUrl: github.com?owner=morgan-stanley&repo=k8s-cluster-${{ steps['catalog-fetch'].output.entity.metadata.annotations['morgan-stanley.com/gitops-repo'] }}
-        branchName: ${{ parameters.prBranch }}
-        title: 'chore(upgrade): Kubernetes ${{ parameters.targetVersion }} — ${{ parameters.upgradeStrategy }}'
+        repoUrl: github.com?owner=morgan-stanley&repo=k8s-cluster-${{ each.value | replace('resource:default/', '') }}
+        branchName: ${{ parameters.prBranchPrefix }}-${{ each.index + 1 }}
+        title: 'chore(upgrade): ${{ each.value | replace("resource:default/", "") }} to Kubernetes ${{ parameters.targetVersion }}'
         description: |
           ## Kubernetes Version Upgrade
 
           | Field | Value |
           |-------|-------|
-          | **Cluster** | `${{ parameters.clusterRef }}` |
+          | **Cluster** | `${{ each.value }}` |
           | **Target Version** | `${{ parameters.targetVersion }}` |
           | **Strategy** | `${{ parameters.upgradeStrategy }}` |
           | **Maintenance Window** | `${{ parameters.maintenanceWindow }}` |
           | **Skip Node Upgrade** | `${{ parameters.skipNodeUpgrade }}` |
+          | **Platform Approval Required** | `${{ parameters.requirePlatformApproval }}` |
 
           ${{ parameters.additionalNotes }}
 
           ---
           _Opened by Backstage Software Template `kubernetes-cluster-upgrade`._
-        sourcePath: ./upgrade-patch
+        sourcePath: ./upgrade-patch-${{ each.index }}
         targetPath: /
 
   # ---------------------------------------------------------------------------
   # Output
   # ---------------------------------------------------------------------------
   output:
-    links:
-      - title: Upgrade Pull Request
-        url: ${{ steps['publish-pr'].output.remoteUrl }}
-      - title: Cluster in Backstage Catalog
-        entityRef: ${{ parameters.clusterRef }}
-      - title: ArgoCD Application
-        url: https://argocd.internal.ms.com/applications/${{ parameters.clusterRef }}
     text:
       - title: Next Steps
         content: |
-          A pull request has been opened to upgrade cluster
-          **${{ parameters.clusterRef }}** to Kubernetes **${{ parameters.targetVersion }}**
-          using the **${{ parameters.upgradeStrategy }}** strategy.
+          Upgrade pull requests have been opened for
+          **${{ parameters.scope == 'single' ? 1 : parameters.clusterRefs.length }} cluster(s)**
+          targeting Kubernetes **${{ parameters.targetVersion }}**.
 
-          1. Review the PR and approve it.
+          1. Review and approve each PR.
           2. ArgoCD will sync the change during the **${{ parameters.maintenanceWindow }}**
              maintenance window.
-          3. Monitor the upgrade in the ArgoCD dashboard and Grafana.
+          3. Monitor each rollout in ArgoCD and Grafana.
 
           Estimated upgrade duration: ~15-30 minutes (control plane) + ~2 min/node (node pools).

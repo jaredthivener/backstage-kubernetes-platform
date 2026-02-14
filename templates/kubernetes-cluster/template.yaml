@@ -2,12 +2,11 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: kubernetes-cluster-provisioner
-  title: Provision Kubernetes Cluster
+  title: Kubernetes Cluster Provisioning Workflow
   description: |
-    Provision a production-grade Kubernetes cluster via Cluster API on Azure (AKS),
-    AWS (EKS), or GCP (GKE). Clusters are deployed via GitOps (ArgoCD), integrated
-    with HashiCorp Vault for secrets, Azure AD (Entra ID) for identity, and
-    Prometheus for monitoring. Network policies enforce PCI-DSS compliance.
+    Launch a production-grade Kubernetes cluster with a guided, enterprise-ready
+    workflow. Uses Cluster API + GitOps (ArgoCD) and applies platform defaults
+    for security, observability, identity, and compliance.
   tags:
     - kubernetes
     - cluster-api
@@ -35,67 +34,154 @@ spec:
   # ---------------------------------------------------------------------------
   parameters:
     # ── Step 1: Cloud & Environment ──────────────────────────────────────────
-    - title: Cloud Provider & Environment
-      required:
-        - cloudProvider
-        - environment
-        - region
-      properties:
-        cloudProvider:
-          title: Cloud Service Provider
-          type: string
-          description: Target cloud for the Kubernetes cluster.
-          enum:
-            - azure
-            - aws
-            - gcp
-          enumNames:
-            - Azure (AKS via CAPZ)
-            - AWS (EKS via CAPA)
-            - GCP (GKE via CAPG)
-          ui:autofocus: true
+    - title: Platform Foundation
+      oneOf:
+        - title: Azure (AKS via CAPZ)
+          required:
+            - cloudProvider
+            - environment
+            - region
+          properties:
+            cloudProvider:
+              title: Cloud Service Provider
+              type: string
+              default: azure
+              ui:widget: radio
+              enum:
+                - azure
+              enumNames:
+                - Azure (AKS via CAPZ)
+              ui:autofocus: true
 
-        environment:
-          title: Environment
-          type: string
-          description: Deployment environment tier.
-          enum:
-            - dev
-            - qa
-            - prod
-          enumNames:
-            - Development
-            - QA / Staging
-            - Production
+            environment:
+              title: Environment
+              type: string
+              description: Deployment environment tier.
+              ui:widget: radio
+              enum:
+                - dev
+                - qa
+                - prod
+              enumNames:
+                - Development
+                - QA / Staging
+                - Production
 
-        region:
-          title: Region
-          type: string
-          description: Cloud region for the cluster.
-          ui:field: EntityPicker
-          ui:options:
-            catalogFilter:
-              kind: Location
-          # Fallback plain enum when catalog locations are not available
-          enum:
-            # Azure
-            - eastus2
-            - westus2
-            - westeurope
-            - southeastasia
-            # AWS
-            - us-east-1
-            - us-west-2
-            - eu-west-1
-            - ap-southeast-1
-            # GCP
-            - us-central1
-            - us-east4
-            - europe-west1
-            - asia-southeast1
+            region:
+              title: Region
+              type: string
+              description: Cloud region for the selected provider.
+              default: eastus2
+              ui:widget: radio
+              enum:
+                - eastus2
+                - westus2
+                - westeurope
+                - southeastasia
+              enumNames:
+                - East US 2
+                - West US 2
+                - West Europe
+                - Southeast Asia
+
+        - title: AWS (EKS via CAPA)
+          required:
+            - cloudProvider
+            - environment
+            - region
+          properties:
+            cloudProvider:
+              title: Cloud Service Provider
+              type: string
+              default: aws
+              ui:widget: radio
+              enum:
+                - aws
+              enumNames:
+                - AWS (EKS via CAPA)
+              ui:autofocus: true
+
+            environment:
+              title: Environment
+              type: string
+              description: Deployment environment tier.
+              ui:widget: radio
+              enum:
+                - dev
+                - qa
+                - prod
+              enumNames:
+                - Development
+                - QA / Staging
+                - Production
+
+            region:
+              title: Region
+              type: string
+              description: Cloud region for the selected provider.
+              default: us-east-1
+              ui:widget: radio
+              enum:
+                - us-east-1
+                - us-west-2
+                - eu-west-1
+                - ap-southeast-1
+              enumNames:
+                - US East (N. Virginia)
+                - US West (Oregon)
+                - EU (Ireland)
+                - Asia Pacific (Singapore)
+
+        - title: GCP (GKE via CAPG)
+          required:
+            - cloudProvider
+            - environment
+            - region
+          properties:
+            cloudProvider:
+              title: Cloud Service Provider
+              type: string
+              default: gcp
+              ui:widget: radio
+              enum:
+                - gcp
+              enumNames:
+                - GCP (GKE via CAPG)
+              ui:autofocus: true
+
+            environment:
+              title: Environment
+              type: string
+              description: Deployment environment tier.
+              ui:widget: radio
+              enum:
+                - dev
+                - qa
+                - prod
+              enumNames:
+                - Development
+                - QA / Staging
+                - Production
+
+            region:
+              title: Region
+              type: string
+              description: Cloud region for the selected provider.
+              default: us-central1
+              ui:widget: radio
+              enum:
+                - us-central1
+                - us-east4
+                - europe-west1
+                - asia-southeast1
+              enumNames:
+                - US Central 1
+                - US East 4
+                - Europe West 1
+                - Asia Southeast 1
 
     # ── Step 2: Cluster Identity ─────────────────────────────────────────────
-    - title: Cluster Details
+    - title: Cluster Identity
       required:
         - clusterName
         - ownerTeam
@@ -124,12 +210,12 @@ spec:
           title: Kubernetes Version
           type: string
           description: Desired Kubernetes minor version.
-          default: '1.29'
+          default: '1.31'
+          ui:widget: radio
           enum:
-            - '1.28'
-            - '1.29'
-            - '1.30'
             - '1.31'
+            - '1.33'
+            - '1.35'
 
         costCenter:
           title: Cost Center
@@ -139,7 +225,7 @@ spec:
           ui:help: 'Format: XX0000 (e.g. IT1234)'
 
     # ── Step 3: Node Pool Sizing ─────────────────────────────────────────────
-    - title: Node Pool Configuration
+    - title: Capacity & Node Pools
       required:
         - nodePoolSize
       properties:
@@ -148,6 +234,7 @@ spec:
           type: string
           description: Pre-defined t-shirt size or custom.
           default: medium
+          ui:widget: radio
           enum:
             - small
             - medium
@@ -228,7 +315,7 @@ spec:
                     - large
 
     # ── Step 4: Add-ons ──────────────────────────────────────────────────────
-    - title: Cluster Add-ons
+    - title: Platform Add-ons
       properties:
         enableMonitoring:
           title: Prometheus Monitoring Stack
@@ -267,7 +354,7 @@ spec:
           description: Deploy the custom namespace-operator for per-team RBAC.
 
     # ── Step 5: Repository Details ───────────────────────────────────────────
-    - title: Repository Configuration
+    - title: GitOps Repository
       required:
         - repoOwner
       properties:
@@ -281,6 +368,7 @@ spec:
           title: Repository Visibility
           type: string
           default: internal
+          ui:widget: radio
           enum:
             - internal
             - private

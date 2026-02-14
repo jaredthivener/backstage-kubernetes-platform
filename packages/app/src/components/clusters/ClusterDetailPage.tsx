@@ -632,6 +632,9 @@ const OverviewTab = ({ data, entity }: { data: ClusterDetail; entity: Entity }) 
   const k8sVersion = ann['morgan-stanley.com/kubernetes-version'] || '—';
   const instanceType = ann['morgan-stanley.com/instance-type'] || '—';
   const clusterName = entity.metadata.name;
+  const clusterRef = `resource:default/${clusterName}`;
+  const templateUrl = (templateName: string, formData: Record<string, string>) =>
+    `/create/templates/default/${templateName}?formData=${encodeURIComponent(JSON.stringify(formData))}`;
 
   return (
     <Grid container spacing={3}>
@@ -730,26 +733,38 @@ const OverviewTab = ({ data, entity }: { data: ClusterDetail; entity: Entity }) 
             <Grid container spacing={1}>
               <Grid item xs={6}>
                 <Button variant="outlined" color="primary" fullWidth startIcon={<UpdateIcon />}
-                  component={Link} to={`/create/templates/default/cluster-upgrade?clusterName=${clusterName}`}>
+                  component={Link} to={templateUrl('kubernetes-cluster-upgrade', { scope: 'single', clusterRef })}>
                   Upgrade
                 </Button>
               </Grid>
               <Grid item xs={6}>
                 <Button variant="outlined" color="primary" fullWidth startIcon={<MemoryIcon />}
-                  component={Link} to={`/create/templates/default/cluster-scale?clusterName=${clusterName}`}>
+                  component={Link} to={templateUrl('kubernetes-cluster-scale', { clusterRef })}>
                   Scale
                 </Button>
               </Grid>
               <Grid item xs={6}>
                 <Button variant="outlined" color="primary" fullWidth startIcon={<SettingsIcon />}
-                  component={Link} to={`/create/templates/default/addon-management?clusterName=${clusterName}`}>
+                  component={Link} to={templateUrl('kubernetes-addon-management', { clusterRef })}>
                   Manage Add-ons
                 </Button>
               </Grid>
               <Grid item xs={6}>
                 <Button variant="outlined" color="primary" fullWidth startIcon={<DnsIcon />}
-                  component={Link} to={`/create/templates/default/namespace-request?clusterName=${clusterName}`}>
+                  component={Link} to={templateUrl('kubernetes-namespace-request', { clusterRef })}>
                   Request NS
+                </Button>
+              </Grid>
+              <Grid item xs={12}>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  fullWidth
+                  startIcon={<SecurityIcon />}
+                  component={Link}
+                  to={templateUrl('kubernetes-cluster-destroy', { clusterRef, confirmClusterName: clusterName })}
+                >
+                  Decommission Cluster
                 </Button>
               </Grid>
             </Grid>

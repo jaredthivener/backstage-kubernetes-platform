@@ -2,13 +2,12 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: kubernetes-cluster-destroy
-  title: Decommission Kubernetes Cluster
+  title: Kubernetes Cluster Decommission Workflow
   description: |
-    Decommission and destroy an existing Kubernetes cluster. This template
-    creates a pull request to remove the cluster's CAPI manifests from the
-    GitOps repository and deregisters the cluster from the Backstage catalog.
-    Safeguards include confirmation by typing the cluster name, optional
-    workload draining, and pre-destroy backups.
+    Guided and auditable workflow for cluster decommissioning.
+    This template creates a GitOps decommission PR, captures justification,
+    enforces confirmation checks, and supports backup/drain controls before
+    infrastructure teardown.
   tags:
     - kubernetes
     - cluster-api
@@ -37,7 +36,7 @@ spec:
   # ---------------------------------------------------------------------------
   parameters:
     # ── Step 1: Select Cluster ───────────────────────────────────────────────
-    - title: Select Cluster to Decommission
+    - title: Decommission Scope
       required:
         - clusterRef
       properties:
@@ -54,10 +53,17 @@ spec:
           ui:autofocus: true
 
     # ── Step 2: Safety Checks ────────────────────────────────────────────────
-    - title: Safety Checks & Options
+    - title: Safety Checks & Controls
       required:
         - confirmClusterName
+        - acknowledgeImpact
       properties:
+        acknowledgeImpact:
+          title: I Understand This Is a Destructive Operation
+          type: boolean
+          default: false
+          description: Must be checked to continue.
+
         confirmClusterName:
           title: Confirm Cluster Name
           type: string
@@ -106,8 +112,15 @@ spec:
           default: true
           description: Remove the cluster entity from the Backstage software catalog.
 
+      dependencies:
+        acknowledgeImpact:
+          oneOf:
+            - properties:
+                acknowledgeImpact:
+                  const: true
+
     # ── Step 3: Confirmation ─────────────────────────────────────────────────
-    - title: Final Review
+    - title: Final Review & Audit Trail
       required:
         - prBranch
       properties:
@@ -146,6 +159,7 @@ spec:
       input:
         message: |
           Cluster decommission requested for: ${{ parameters.clusterRef }}
+          Impact acknowledged: ${{ parameters.acknowledgeImpact }}
           Confirmation provided: ${{ parameters.confirmClusterName }}
           Drain workloads: ${{ parameters.drainWorkloads }}
           Create backup: ${{ parameters.createBackup }}

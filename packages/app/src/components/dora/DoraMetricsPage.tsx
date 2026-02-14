@@ -93,7 +93,7 @@ interface AiCapability {
 const useStyles = makeStyles(theme => ({
   // ------ Hero Metrics Cards ------
   heroCard: {
-    borderRadius: 16,
+    borderRadius: 14,
     padding: theme.spacing(2.5),
     position: 'relative',
     overflow: 'hidden',
@@ -101,32 +101,23 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     flexDirection: 'column',
     transition: 'transform 0.25s ease, box-shadow 0.25s ease',
+    backgroundColor: theme.palette.background.paper,
     '&:hover': {
       transform: 'translateY(-4px)',
       boxShadow: theme.shadows[8],
     },
   },
   heroCardElite: {
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
-    border: '1px solid rgba(46,125,50,0.18)',
-    '&:hover': {
-      boxShadow: '0 8px 32px rgba(46,125,50,0.15)',
-    },
+    border: '1px solid rgba(46,125,50,0.15)',
   },
   heroCardHigh: {
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
-    border: '1px solid rgba(0,120,212,0.18)',
-    '&:hover': {
-      boxShadow: '0 8px 32px rgba(0,120,212,0.15)',
-    },
+    border: '1px solid rgba(0,120,212,0.15)',
   },
   heroCardMedium: {
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
-    border: '1px solid rgba(255,143,0,0.18)',
+    border: '1px solid rgba(255,143,0,0.15)',
   },
   heroCardLow: {
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
-    border: '1px solid rgba(198,40,40,0.18)',
+    border: '1px solid rgba(198,40,40,0.15)',
   },
   metricCategory: {
     fontSize: '0.65rem',
