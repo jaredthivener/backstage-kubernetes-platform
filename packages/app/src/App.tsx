@@ -31,6 +31,7 @@ import { MonitoringPage } from './components/monitoring/MonitoringPage';
 import { ClusterDetailPage } from './components/clusters/ClusterDetailPage';
 import { CostPage } from './components/cost/CostPage';
 import { DocsPage } from './components/docs/DocsPage';
+import { DocsArticlePage } from './components/docs/DocsArticlePage';
 import { SupportPage } from './components/support/SupportPage';
 import { DoraMetricsPage } from './components/dora/DoraMetricsPage';
 import { AIChatBotPage } from './components/aichatbot/AIChatBotPage';
@@ -125,6 +126,7 @@ const routes = (
       {entityPage}
     </Route>
     <Route path="/docs" element={<DocsPage />} />
+    <Route path="/docs/articles/:articleId" element={<DocsArticlePage />} />
     <Route path="/support" element={<SupportPage />} />
     <Route path="/addons" element={<AddonsPage />} />
     <Route path="/aichatbot" element={<AIChatBotPage />} />

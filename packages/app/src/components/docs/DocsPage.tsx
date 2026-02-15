@@ -40,7 +40,7 @@ import { Link } from 'react-router-dom';
 
 const useStyles = makeStyles(theme => ({
   heroBanner: {
-    background: 'linear-gradient(135deg, #1A237E 0%, #283593 40%, #3949AB 100%)',
+    background: 'linear-gradient(135deg, #1A237E 0%, #283593 35%, #3949AB 70%, #E8EAF6 100%)',
     borderRadius: 16,
     padding: theme.spacing(5, 4),
     color: '#fff',
@@ -67,6 +67,20 @@ const useStyles = makeStyles(theme => ({
       borderRadius: '50%',
       background: 'rgba(255,255,255,0.04)',
     },
+  },
+  heroBannerArt: {
+    position: 'absolute',
+    right: theme.spacing(7),
+    bottom: theme.spacing(1),
+    height: 180,
+    width: 'auto',
+    opacity: 1,
+    pointerEvents: 'none',
+    filter: 'drop-shadow(0 10px 20px rgba(0, 0, 0, 0.22))',
+  },
+  heroContent: {
+    position: 'relative',
+    zIndex: 1,
   },
   heroTitle: {
     fontSize: '2rem',
@@ -193,6 +207,13 @@ const useStyles = makeStyles(theme => ({
     },
     '&:last-child': {
       borderBottom: 'none',
+    },
+  },
+  articleTitleLink: {
+    color: 'inherit',
+    textDecoration: 'none',
+    '&:hover': {
+      textDecoration: 'underline',
     },
   },
   popularRank: {
@@ -349,13 +370,13 @@ const quickStarts: QuickStart[] = [
 ];
 
 const popularArticles = [
-  { id: 'cilium-networking', title: 'Multi-cluster Networking with Cilium', views: '2.4k', category: 'Networking' },
-  { id: 'cost-optimization', title: 'Cost Optimization: Right-sizing Node Pools', views: '1.8k', category: 'Operations' },
-  { id: 'migration-eks-aks', title: 'Migrating from EKS to AKS', views: '1.5k', category: 'Migration' },
-  { id: 'pci-dss', title: 'PCI-DSS Compliance for Kubernetes', views: '1.3k', category: 'Security' },
-  { id: 'canary-deployments', title: 'Canary Deployments with ArgoCD Rollouts', views: '1.1k', category: 'GitOps' },
-  { id: 'gpu-pools', title: 'GPU Node Pools for ML Workloads', views: '980', category: 'AI/ML' },
-  { id: 'etcd-troubleshooting', title: 'Troubleshooting etcd Performance', views: '870', category: 'Operations' },
+  { id: 'cilium-networking', title: 'Multi-cluster Networking with Cilium', views: '2.4k', category: 'Networking', to: '/docs/articles/cilium-networking' },
+  { id: 'cost-optimization', title: 'Cost Optimization: Right-sizing Node Pools', views: '1.8k', category: 'Operations', to: '/docs/articles/cost-optimization' },
+  { id: 'migration-eks-aks', title: 'Migrating from EKS to AKS', views: '1.5k', category: 'Migration', to: '/docs/articles/migration-eks-aks' },
+  { id: 'pci-dss', title: 'PCI-DSS Compliance for Kubernetes', views: '1.3k', category: 'Security', to: '/docs/articles/pci-dss' },
+  { id: 'canary-deployments', title: 'Canary Deployments with ArgoCD Rollouts', views: '1.1k', category: 'GitOps', to: '/docs/articles/canary-deployments' },
+  { id: 'gpu-pools', title: 'GPU Node Pools for ML Workloads', views: '980', category: 'AI/ML', to: '/docs/articles/gpu-pools' },
+  { id: 'etcd-troubleshooting', title: 'Troubleshooting etcd Performance', views: '870', category: 'Operations', to: '/docs/articles/etcd-troubleshooting' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -366,6 +387,7 @@ interface Favorite {
   title: string;
   views: string;
   category: string;
+  to?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -381,7 +403,7 @@ export const DocsPage = () => {
     return favorites.some(fav => fav.id === articleId);
   };
 
-  const toggleFavorite = (article: { id: string; title: string; views: string; category: string }) => {
+  const toggleFavorite = (article: Favorite) => {
     if (isFavorited(article.id)) {
       setFavorites(favorites.filter(fav => fav.id !== article.id));
     } else {
@@ -415,21 +437,24 @@ export const DocsPage = () => {
       <Content>
         {/* Hero Banner */}
         <Box className={classes.heroBanner}>
-          <Typography className={classes.heroTitle}>
-            Knowledge Base
-          </Typography>
-          <Typography className={classes.heroSubtitle}>
-            Guides, tutorials, and reference documentation for deploying and managing
-            Kubernetes clusters at Morgan Stanley. From first cluster to production-grade infrastructure.
-          </Typography>
-          <Box className={classes.searchBox}>
-            <SearchIcon style={{ color: 'rgba(255,255,255,0.7)' }} />
-            <InputBase
-              placeholder="Search documentation... (e.g., 'network policy', 'ArgoCD')"
-              className={classes.searchInput}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+          <img src="/logos/docs-banner-hiclipart-transparent.png" alt="" className={classes.heroBannerArt} />
+          <Box className={classes.heroContent}>
+            <Typography className={classes.heroTitle}>
+              Knowledge Base
+            </Typography>
+            <Typography className={classes.heroSubtitle}>
+              Guides, tutorials, and reference documentation for deploying and managing
+              Kubernetes clusters at Morgan Stanley. From first cluster to production-grade infrastructure.
+            </Typography>
+            <Box className={classes.searchBox}>
+              <SearchIcon style={{ color: 'rgba(255,255,255,0.7)' }} />
+              <InputBase
+                placeholder="Search documentation... (e.g., 'network policy', 'ArgoCD')"
+                className={classes.searchInput}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </Box>
           </Box>
         </Box>
 
@@ -500,7 +525,7 @@ export const DocsPage = () => {
                         size="small"
                         onClick={(e) => {
                           e.preventDefault();
-                          toggleFavorite({ id: qs.title, title: qs.title, views: '', category: 'Quick Start' });
+                          toggleFavorite({ id: qs.title, title: qs.title, views: '', category: 'Quick Start', to: qs.to });
                         }}
                         style={{ color: isFavorited(qs.title) ? '#FFB300' : '#999' }}
                       >
@@ -599,9 +624,21 @@ export const DocsPage = () => {
                         </Box>
                       )}
                       <Box flex={1}>
-                        <Typography variant="body2" style={{ fontWeight: 600, fontSize: '0.85rem' }}>
-                          {article.title}
-                        </Typography>
+                        {article.to ? (
+                          <Typography
+                            variant="body2"
+                            className={classes.articleTitleLink}
+                            component={Link}
+                            to={article.to}
+                            style={{ fontWeight: 600, fontSize: '0.85rem' }}
+                          >
+                            {article.title}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body2" style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                            {article.title}
+                          </Typography>
+                        )}
                         <Box display="flex" alignItems="center" gridGap={8} mt={0.5}>
                           <Chip
                             size="small"
