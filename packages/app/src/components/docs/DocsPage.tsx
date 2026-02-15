@@ -424,14 +424,9 @@ export const DocsPage = () => {
   return (
     <Page themeId="documentation">
       <Header
-        title={
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            <MenuBookIcon />
-            Documentation
-          </span>
-        }
+        title={<span style={{ opacity: 0, userSelect: 'none' }}>Documentation</span>}
         subtitle={
-          <HeaderBannerLogos layout="docs" text="Everything you need to know about the Kubernetes Platform" />
+          <HeaderBannerLogos layout="docs" />
         }
       />
       <Content>

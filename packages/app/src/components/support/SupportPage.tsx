@@ -372,10 +372,8 @@ export const SupportPage = () => {
   return (
     <Page themeId="home">
       <Header
-        title="Support"
-        subtitle={
-          <HeaderBannerLogos layout="support" text="On-call schedules, support requests & escalations" />
-        }
+        title={<span style={{ opacity: 0, userSelect: 'none' }}>Support</span>}
+        subtitle={<HeaderBannerLogos layout="support" />}
       />
       <Content>
         {/* Hero Banner */}
