@@ -54,3 +54,6 @@ e2e-test-report/
 
 # Cache
 .cache/
+
+# ZAP scanner generated files
+zap.yaml
