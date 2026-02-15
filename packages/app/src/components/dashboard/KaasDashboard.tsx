@@ -49,6 +49,7 @@ import EventIcon from '@material-ui/icons/Event';
 import NewReleasesIcon from '@material-ui/icons/NewReleases';
 import SpeedIcon from '@material-ui/icons/Speed';
 import EmailIcon from '@material-ui/icons/Email';
+import PhoneIcon from '@material-ui/icons/Phone';
 import SearchIcon from '@material-ui/icons/Search';
 import CloseIcon from '@material-ui/icons/Close';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
@@ -1432,16 +1433,18 @@ const PagerDutyWidget = () => {
     {
       role: 'Primary On-Call',
       name: 'Jane Doe (jdoe)',
+      phone: '+1 (212) 555-0142',
       email: 'jdoe@morganstanley.com',
       teamsUser: 'jdoe@morganstanley.com',
-      until: 'Feb 17, 09:00',
+      until: 'Feb 17, 09:00 EDT',
     },
     {
       role: 'Secondary On-Call',
       name: 'Alex Smith (asmith)',
+      phone: '+1 (415) 555-0198',
       email: 'asmith@morganstanley.com',
       teamsUser: 'asmith@morganstanley.com',
-      until: 'Feb 17, 09:00',
+      until: 'Feb 17, 09:00 GMT',
     },
   ];
 
@@ -1487,6 +1490,15 @@ const PagerDutyWidget = () => {
                 </Typography>
               </Box>
               <Box className={classes.onCallActions}>
+                <Tooltip title={`Call ${oc.phone}`}>
+                  <IconButton
+                    size="small"
+                    href={`tel:${oc.phone.replace(/[^+\d]/g, '')}`}
+                    aria-label={`Call ${oc.name}`}
+                  >
+                    <PhoneIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title="Chat in Microsoft Teams">
                   <IconButton
                     size="small"
