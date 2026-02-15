@@ -2045,10 +2045,7 @@ export const KaasDashboard = () => {
   return (
     <Page themeId="home">
       <Header
-        title={
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-          </span>
-        }
+        title={'\u00A0'}
         subtitle={
           <HeaderBannerLogos layout="dashboard" />
         }
@@ -2086,6 +2083,12 @@ export const KaasDashboard = () => {
               </Box>
             </Box>
           </Box>
+          <img
+            src="/logos/griffin-family.png"
+            alt="Stewie Griffin"
+            className={classes.welcomeMascot}
+            style={{ right: 1100, height: 100, bottom: 0 }}
+          />
           <img
             src="/logos/rick-morty.png"
             alt="Rick and Morty"

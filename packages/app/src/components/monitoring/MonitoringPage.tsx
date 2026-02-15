@@ -243,6 +243,7 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     alignItems: 'flex-start',
     gap: theme.spacing(1.5),
+    color: theme.palette.text.primary,
   },
 }));
 
@@ -622,6 +623,7 @@ export const MonitoringPage = () => {
               <Box key={idx} className={classes.insightCard} style={{
                 backgroundColor: insight.severity === 'critical' ? '#FFEBEE' : insight.severity === 'warning' ? '#FFF3E0' : '#E3F2FD',
                 borderLeftColor: insight.severity === 'critical' ? '#F44336' : insight.severity === 'warning' ? '#FF9800' : '#2196F3',
+                color: '#1a1a1a',
               }}>
                 <Typography variant="body2" style={{ flex: 1, lineHeight: 1.4 }}>{insight.message}</Typography>
               </Box>

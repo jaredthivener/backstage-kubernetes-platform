@@ -36,7 +36,6 @@ import { SupportPage } from './components/support/SupportPage';
 import { DoraMetricsPage } from './components/dora/DoraMetricsPage';
 import { AIChatBotPage } from './components/aichatbot/AIChatBotPage';
 import { AddonsPage } from './components/addons/AddonsPage';
-import { HeaderBannerLogos } from './components/shared/HeaderBannerLogos';
 
 import {
   AlertDisplay,
@@ -146,12 +145,7 @@ const routes = (
           headerOptions={{
             pageTitleOverride: 'Platform Workflows',
             title: 'Platform Workflows',
-            subtitle: (
-              <HeaderBannerLogos
-                layout="dashboard"
-                text="Create and run Kubernetes platform workflows using approved templates"
-              />
-            ) as unknown as string,
+            subtitle: 'Create and run Kubernetes platform workflows using approved templates',
           }}
         />
       }
