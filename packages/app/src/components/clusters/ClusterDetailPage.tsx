@@ -2393,8 +2393,38 @@ const LiveSessionTab = ({ entity, clusterName, data }: { entity: Entity; cluster
   const namespace = entity.metadata.namespace || 'default';
   const csp = entity?.metadata?.annotations?.['morgan-stanley.com/csp'] || 'unknown';
 
+  const buildAlertTargets = (alertMessage: string) => {
+    const lower = alertMessage.toLowerCase();
+    const nodeMatch = alertMessage.match(/node\s+([a-z0-9.-]+)/i);
+    const nodeName = nodeMatch?.[1] || data.nodes[0]?.name || `${clusterName}-nodepool-01`;
+
+    const scaledMatch = alertMessage.match(/scaled\s+([a-z0-9-]+)/i);
+    const replicasMatch = alertMessage.match(/^([a-z0-9-]+)\s+replicas\s+scaled/i);
+    const namespaceMatch = data.costByNamespace.find(entry => lower.includes(entry.namespace));
+    const appName = replicasMatch?.[1] || scaledMatch?.[1] || namespaceMatch?.namespace;
+
+    let alertNamespace = namespace;
+    if (lower.includes('ingress')) {
+      alertNamespace = 'ingress-nginx';
+    } else if (lower.includes('spark') || lower.includes('pvc') || lower.includes('storage')) {
+      alertNamespace = 'spark-jobs';
+    } else if (lower.includes('ml')) {
+      alertNamespace = 'ml-pipeline';
+    } else if (appName) {
+      alertNamespace = appName;
+    } else if (data.costByNamespace[0]?.namespace) {
+      alertNamespace = data.costByNamespace[0].namespace;
+    }
+
+    const podBase = appName || alertNamespace || 'app';
+    const podName = `${podBase}-7c6f7b8d5b-9r2kw`;
+
+    return { nodeName, alertNamespace, podName };
+  };
+
   const recommendationsByAlert = data.alerts.map((alert, index) => {
     const message = alert.message.toLowerCase();
+    const { nodeName, alertNamespace, podName } = buildAlertTargets(alert.message);
     let commands: { command: string; reason: string }[];
 
     if (message.includes('cpu')) {
@@ -2404,28 +2434,28 @@ const LiveSessionTab = ({ entity, clusterName, data }: { entity: Entity; cluster
       ];
     } else if (message.includes('memory')) {
       commands = [
-        { command: 'kubectl top pods -A --sort-by=memory', reason: 'Find pods consuming the most memory.' },
-        { command: 'kubectl describe node <node-name>', reason: 'Inspect node memory pressure and eviction status.' },
+        { command: `kubectl top pod -n ${alertNamespace} ${podName}`, reason: 'Inspect memory pressure for the suspected pod.' },
+        { command: `kubectl describe node ${nodeName}`, reason: 'Inspect node memory pressure and eviction status.' },
       ];
     } else if (message.includes('latency') || message.includes('api')) {
       commands = [
-        { command: 'kubectl get pods -A -o wide', reason: 'Validate pod status and node placement for affected services.' },
-        { command: 'kubectl logs -n <namespace> <pod-name> --tail=200', reason: 'Inspect recent error spikes and timeout patterns.' },
+        { command: `kubectl get pod -n ${alertNamespace} ${podName} -o wide`, reason: 'Validate pod status and node placement for the affected service.' },
+        { command: `kubectl logs -n ${alertNamespace} ${podName} --tail=200`, reason: 'Inspect recent error spikes and timeout patterns.' },
       ];
     } else if (message.includes('node')) {
       commands = [
-        { command: 'kubectl get nodes -o wide', reason: 'Review node readiness and scheduling health.' },
-        { command: 'kubectl describe node <node-name>', reason: 'Inspect events, taints, and resource constraints.' },
+        { command: `kubectl get node ${nodeName} -o wide`, reason: 'Review node readiness and scheduling health.' },
+        { command: `kubectl describe node ${nodeName}`, reason: 'Inspect events, taints, and resource constraints.' },
       ];
     } else if (message.includes('pod')) {
       commands = [
-        { command: 'kubectl get pods -A', reason: 'Check pod health and restart behavior across namespaces.' },
-        { command: 'kubectl describe pod -n <namespace> <pod-name>', reason: 'Inspect events and container failure details.' },
+        { command: `kubectl get pod -n ${alertNamespace} ${podName}`, reason: 'Check pod health and restart behavior.' },
+        { command: `kubectl describe pod -n ${alertNamespace} ${podName}`, reason: 'Inspect events and container failure details.' },
       ];
     } else {
       commands = [
-        { command: 'kubectl get events -A --sort-by=.lastTimestamp', reason: 'Review latest cluster events around this alert window.' },
-        { command: 'kubectl get pods -A', reason: 'Perform a quick workload health baseline check.' },
+        { command: `kubectl get events -n ${alertNamespace} --sort-by=.lastTimestamp`, reason: 'Review latest events for the affected namespace.' },
+        { command: `kubectl get pod -n ${alertNamespace} ${podName}`, reason: 'Perform a quick workload health baseline check.' },
       ];
     }
 
@@ -2456,31 +2486,207 @@ const LiveSessionTab = ({ entity, clusterName, data }: { entity: Entity; cluster
     const trimmed = command.trim();
     if (!trimmed || !connected) return;
 
+    const formatTable = (rows: string[][], gap = 2) => {
+      const widths = rows.reduce<number[]>((acc, row) => {
+        row.forEach((col, index) => {
+          const length = col.length;
+          acc[index] = Math.max(acc[index] ?? 0, length);
+        });
+        return acc;
+      }, []);
+
+      return rows.map(row =>
+        row
+          .map((col, index) =>
+            index === row.length - 1 ? col : col.padEnd(widths[index] + gap, ' '),
+          )
+          .join(''),
+      );
+    };
+
     const output: string[] = [`$ ${trimmed}`];
     if (trimmed === 'help') {
       output.push(
         'Available: kubectl get pods -A | kubectl get nodes | kubectl top nodes | kubectl describe node <name> | clear',
       );
     } else if (trimmed === 'kubectl get pods -A') {
-      output.push('NAMESPACE       NAME                              READY   STATUS    RESTARTS   AGE');
-      output.push('kube-system     coredns-6f67b8bbf-9sk2p          1/1     Running   0          12d');
-      output.push('monitoring      prometheus-k8s-0                  2/2     Running   0          8d');
-      output.push('argocd          argocd-server-7fcb7645d8-jx2wm    1/1     Running   0          18d');
+      output.push(
+        ...formatTable([
+          ['NAMESPACE', 'NAME', 'READY', 'STATUS', 'RESTARTS', 'AGE'],
+          ['kube-system', 'coredns-6f67b8bbf-9sk2p', '1/1', 'Running', '0', '12d'],
+          ['monitoring', 'prometheus-k8s-0', '2/2', 'Running', '0', '8d'],
+          ['argocd', 'argocd-server-7fcb7645d8-jx2wm', '1/1', 'Running', '0', '18d'],
+        ]),
+      );
+    } else if (trimmed === 'kubectl top pods -A --sort-by=cpu') {
+      output.push(
+        ...formatTable([
+          ['NAMESPACE', 'NAME', 'CPU(cores)', 'MEMORY(bytes)'],
+          ['analytics', 'inference-gpu-7c6f7b8d5b-9r2kw', '920m', '1840Mi'],
+          ['kube-system', 'metrics-server-7c9c9b7f8d-t8p2m', '260m', '120Mi'],
+          ['monitoring', 'prometheus-k8s-0', '220m', '980Mi'],
+        ]),
+      );
+    } else if (trimmed === 'kubectl top pods -A --sort-by=memory') {
+      output.push(
+        ...formatTable([
+          ['NAMESPACE', 'NAME', 'CPU(cores)', 'MEMORY(bytes)'],
+          ['spark-jobs', 'spark-driver-6b7d9c6b6b-8h2mt', '240m', '3960Mi'],
+          ['ml-pipeline', 'training-api-5f9f7b6b7c-6d2jj', '310m', '3120Mi'],
+          ['monitoring', 'prometheus-k8s-0', '220m', '980Mi'],
+        ]),
+      );
+    } else if (/^kubectl top pod -n\s+\S+\s+\S+/.test(trimmed)) {
+      const match = trimmed.match(/^kubectl top pod -n\s+(\S+)\s+(\S+)/);
+      const targetNamespace = match?.[1] ?? 'default';
+      const targetPod = match?.[2] ?? 'pod';
+      output.push(
+        ...formatTable([
+          ['NAME', 'CPU(cores)', 'MEMORY(bytes)'],
+          [targetPod, '280m', '1620Mi'],
+        ]),
+      );
     } else if (trimmed === 'kubectl get nodes') {
-      output.push('NAME                     STATUS   ROLES    AGE    VERSION');
-      output.push(`${clusterName}-nodepool-01   Ready    worker   18d    v1.29.4`);
-      output.push(`${clusterName}-nodepool-02   Ready    worker   18d    v1.29.4`);
-      output.push(`${clusterName}-system-01     Ready    system   18d    v1.29.4`);
+      output.push(
+        ...formatTable([
+          ['NAME', 'STATUS', 'ROLES', 'AGE', 'VERSION'],
+          [`${clusterName}-nodepool-01`, 'Ready', 'worker', '18d', 'v1.29.4'],
+          [`${clusterName}-nodepool-02`, 'Ready', 'worker', '18d', 'v1.29.4'],
+          [`${clusterName}-system-01`, 'Ready', 'system', '18d', 'v1.29.4'],
+        ]),
+      );
+    } else if (/^kubectl get node\s+\S+\s+-o wide$/.test(trimmed)) {
+      const match = trimmed.match(/^kubectl get node\s+(\S+)\s+-o wide$/);
+      const targetNode = match?.[1] ?? `${clusterName}-nodepool-01`;
+      output.push(
+        ...formatTable([
+          ['NAME', 'STATUS', 'ROLES', 'AGE', 'VERSION', 'INTERNAL-IP', 'EXTERNAL-IP', 'OS-IMAGE', 'KERNEL-VERSION'],
+          [
+            targetNode,
+            'Ready',
+            'worker',
+            '18d',
+            'v1.29.4',
+            '10.20.2.101',
+            '<none>',
+            'Bottlerocket OS 1.20.3',
+            '5.15.151',
+          ],
+        ]),
+      );
+    } else if (trimmed === 'kubectl get nodes -o wide') {
+      output.push(
+        ...formatTable([
+          ['NAME', 'STATUS', 'ROLES', 'AGE', 'VERSION', 'INTERNAL-IP', 'EXTERNAL-IP', 'OS-IMAGE', 'KERNEL-VERSION'],
+          [
+            `${clusterName}-nodepool-01`,
+            'Ready',
+            'worker',
+            '18d',
+            'v1.29.4',
+            '10.20.2.101',
+            '<none>',
+            'Bottlerocket OS 1.20.3',
+            '5.15.151',
+          ],
+          [
+            `${clusterName}-nodepool-02`,
+            'Ready',
+            'worker',
+            '18d',
+            'v1.29.4',
+            '10.20.2.102',
+            '<none>',
+            'Bottlerocket OS 1.20.3',
+            '5.15.151',
+          ],
+          [
+            `${clusterName}-system-01`,
+            'Ready',
+            'system',
+            '18d',
+            'v1.29.4',
+            '10.20.2.31',
+            '<none>',
+            'Bottlerocket OS 1.20.3',
+            '5.15.151',
+          ],
+        ]),
+      );
     } else if (trimmed === 'kubectl top nodes') {
-      output.push('NAME                     CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%');
-      output.push(`${clusterName}-nodepool-01   760m         38%    5240Mi          62%`);
-      output.push(`${clusterName}-nodepool-02   840m         42%    4980Mi          58%`);
-      output.push(`${clusterName}-system-01     310m         16%    2420Mi          40%`);
+      output.push(
+        ...formatTable([
+          ['NAME', 'CPU(cores)', 'CPU%', 'MEMORY(bytes)', 'MEMORY%'],
+          [`${clusterName}-nodepool-01`, '760m', '38%', '5240Mi', '62%'],
+          [`${clusterName}-nodepool-02`, '840m', '42%', '4980Mi', '58%'],
+          [`${clusterName}-system-01`, '310m', '16%', '2420Mi', '40%'],
+        ]),
+      );
+    } else if (/^kubectl get pod -n\s+\S+\s+\S+\s+-o wide$/.test(trimmed)) {
+      const match = trimmed.match(/^kubectl get pod -n\s+(\S+)\s+(\S+)\s+-o wide$/);
+      const targetNamespace = match?.[1] ?? 'default';
+      const targetPod = match?.[2] ?? 'pod';
+      output.push(
+        ...formatTable([
+          ['NAME', 'READY', 'STATUS', 'RESTARTS', 'AGE', 'IP', 'NODE'],
+          [targetPod, '1/1', 'Running', '0', '42m', '10.20.2.55', `${clusterName}-nodepool-01`],
+        ]),
+      );
+    } else if (/^kubectl get pod -n\s+\S+\s+\S+$/.test(trimmed)) {
+      const match = trimmed.match(/^kubectl get pod -n\s+(\S+)\s+(\S+)$/);
+      const targetNamespace = match?.[1] ?? 'default';
+      const targetPod = match?.[2] ?? 'pod';
+      output.push(
+        ...formatTable([
+          ['NAME', 'READY', 'STATUS', 'RESTARTS', 'AGE'],
+          [targetPod, '1/1', 'Running', '0', '42m'],
+        ]),
+      );
     } else if (trimmed.startsWith('kubectl describe node')) {
-      output.push('Name:               worker-node');
+      const match = trimmed.match(/^kubectl describe node\s+(\S+)/);
+      const targetNode = match?.[1] ?? 'worker-node';
+      output.push(`Name:               ${targetNode}`);
       output.push('Roles:              worker');
       output.push('Conditions:         Ready=True, MemoryPressure=False, DiskPressure=False');
       output.push('Allocated resources: cpu 68%, memory 71%');
+    } else if (trimmed.startsWith('kubectl describe pod')) {
+      const match = trimmed.match(/^kubectl describe pod -n\s+(\S+)\s+(\S+)/);
+      const targetNamespace = match?.[1] ?? 'default';
+      const targetPod = match?.[2] ?? 'pod';
+      output.push(`Name:               ${targetPod}`);
+      output.push(`Namespace:          ${targetNamespace}`);
+      output.push('Status:             Running');
+      output.push('Containers:         inference, sidecar');
+      output.push('Restarts:           0');
+      output.push('Events:             Normal Scheduled, Normal Pulled, Normal Started');
+    } else if (/^kubectl logs -n\s+\S+\s+\S+\s+--tail=\d+$/.test(trimmed)) {
+      const match = trimmed.match(/^kubectl logs -n\s+(\S+)\s+(\S+)\s+--tail=\d+$/);
+      const targetNamespace = match?.[1] ?? 'default';
+      const targetPod = match?.[2] ?? 'pod';
+      output.push(`[${targetNamespace}/${targetPod}] 2026-02-15T12:41:12.120Z INFO  request_id=1f2c latency=42ms status=200`);
+      output.push(`[${targetNamespace}/${targetPod}] 2026-02-15T12:41:13.005Z WARN  upstream_timeout request_id=1f2d latency=1200ms status=504`);
+      output.push(`[${targetNamespace}/${targetPod}] 2026-02-15T12:41:13.208Z INFO  retry_attempt=1 request_id=1f2d`);
+      output.push(`[${targetNamespace}/${targetPod}] 2026-02-15T12:41:14.664Z INFO  request_id=1f2e latency=39ms status=200`);
+    } else if (trimmed === 'kubectl get events -A --sort-by=.lastTimestamp') {
+      output.push(
+        ...formatTable([
+          ['LAST SEEN', 'TYPE', 'REASON', 'OBJECT', 'MESSAGE'],
+          ['10s', 'Normal', 'Scheduled', 'pod/inference-gpu-7c6f7b8d5b-9r2kw', 'Successfully assigned analytics'],
+          ['45s', 'Warning', 'BackOff', 'pod/batch-worker-6c9d8b6d8f-2lq9p', 'Back-off restarting failed container'],
+          ['2m', 'Normal', 'Pulled', 'pod/prometheus-k8s-0', 'Container image pulled'],
+        ]),
+      );
+    } else if (/^kubectl get events -n\s+\S+\s+--sort-by=\.lastTimestamp$/.test(trimmed)) {
+      const match = trimmed.match(/^kubectl get events -n\s+(\S+)\s+--sort-by=\.lastTimestamp$/);
+      const targetNamespace = match?.[1] ?? 'default';
+      output.push(
+        ...formatTable([
+          ['LAST SEEN', 'TYPE', 'REASON', 'OBJECT', 'MESSAGE'],
+          ['12s', 'Normal', 'Pulled', 'pod/api-5f9f7b6b7c-6d2jj', 'Container image pulled'],
+          ['26s', 'Warning', 'Unhealthy', 'pod/api-5f9f7b6b7c-6d2jj', 'Readiness probe failed: 503'],
+          ['2m', 'Normal', 'Started', 'pod/api-5f9f7b6b7c-6d2jj', 'Started container'],
+        ]),
+      );
     } else if (trimmed === 'clear') {
       setTerminalLines(['Terminal cleared.', 'Type "help" to see available commands.']);
       setCommand('');
