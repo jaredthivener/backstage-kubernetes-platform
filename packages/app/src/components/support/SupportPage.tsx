@@ -746,6 +746,120 @@ export const SupportPage = () => {
                 ))}
               </CardContent>
             </Card>
+
+            <Box mt={3}>
+              <Card className={classes.statCard}>
+                <CardContent>
+                  <Typography variant="h6" style={{ fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <img
+                      src="/logos/microsoft-teams.svg"
+                      alt="Microsoft Teams"
+                      style={{ width: 18, height: 18 }}
+                    />
+                    Microsoft Teams Channels
+                  </Typography>
+
+                  {[
+                    {
+                      name: 'Kubernetes Platform',
+                      description: 'Cluster operations, incidents, and platform announcements.',
+                      channel: '#kubernetes-platform',
+                      members: 142,
+                      online: 96,
+                      away: 29,
+                      color: '#326CE5',
+                      link: 'https://teams.microsoft.com',
+                    },
+                    {
+                      name: 'Service Mesh Operations',
+                      description: 'Istio/Cilium mesh support, mTLS issues, and traffic policies.',
+                      channel: '#service-mesh-ops',
+                      members: 58,
+                      online: 34,
+                      away: 16,
+                      color: '#8061C3',
+                      link: 'https://teams.microsoft.com',
+                    },
+                  ].map(group => (
+                    <Box
+                      key={group.name}
+                      display="flex"
+                      justifyContent="space-between"
+                      alignItems="center"
+                      py={1.25}
+                      px={1.25}
+                      mb={1}
+                      style={{
+                        borderRadius: 10,
+                        border: `1px solid ${group.color}55`,
+                        background: `${group.color}12`,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" style={{ fontWeight: 700 }}>
+                          {group.name}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary" style={{ display: 'block' }}>
+                          {group.description}
+                        </Typography>
+                        <Box display="flex" alignItems="center" gridGap={8} mt={0.5}>
+                          <Chip
+                            size="small"
+                            label={group.channel}
+                            style={{
+                              backgroundColor: `${group.color}22`,
+                              color: group.color,
+                              fontWeight: 600,
+                              fontSize: '0.65rem',
+                              height: 20,
+                            }}
+                          />
+                          <Typography variant="caption" color="textSecondary">
+                            {group.members} members
+                          </Typography>
+                          <Chip
+                            size="small"
+                            label={`${group.online} online`}
+                            style={{
+                              backgroundColor: '#4CAF5022',
+                              color: '#4CAF50',
+                              fontWeight: 700,
+                              fontSize: '0.65rem',
+                              height: 20,
+                              boxShadow: '0 0 10px rgba(76, 175, 80, 0.45)',
+                            }}
+                          />
+                          <Chip
+                            size="small"
+                            label={`${group.away} away`}
+                            style={{
+                              backgroundColor: '#FF980022',
+                              color: '#FF9800',
+                              fontWeight: 700,
+                              fontSize: '0.65rem',
+                              height: 20,
+                              boxShadow: '0 0 10px rgba(255, 152, 0, 0.4)',
+                            }}
+                          />
+                        </Box>
+                      </Box>
+
+                      <Tooltip title="Open in Microsoft Teams">
+                        <IconButton
+                          size="small"
+                          href={group.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Open ${group.name} in Microsoft Teams`}
+                        >
+                          <OpenInNewIcon style={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  ))}
+                </CardContent>
+              </Card>
+            </Box>
           </Grid>
         </Grid>
       </Content>
