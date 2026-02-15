@@ -6,13 +6,18 @@ import React from 'react';
 // ---------------------------------------------------------------------------
 const ossLogos = [
   { src: '/logos/istio.svg', name: 'Istio' },
-  { src: '/logos/cilium.svg', name: 'Cilium', scale: 1.33 },
+  {
+    src: '/logos/kubernetes.svg',
+    name: 'Kubernetes',
+    scale: 1.4,
+    filter: 'brightness(1.7) contrast(1.15)',
+  },
   {
     src: '/logos/argo-simple.svg',
     name: 'ArgoCD',
-    scale: 1.5,
-    yOffset: -14,
-    filter: 'brightness(2.1) saturate(0) contrast(0.9)',
+    scale: 1.6,
+    yOffset: -32,
+    filter: 'brightness(2.2) saturate(0) contrast(1.0)',
   },
   { src: '/logos/prometheus.svg', name: 'Prometheus' },
   { src: '/logos/grafana.svg', name: 'Grafana' },
@@ -20,7 +25,7 @@ const ossLogos = [
   { src: '/logos/opentelemetry.svg', name: 'OpenTelemetry' },
   { src: '/logos/fluentd.svg', name: 'Fluentd' },
   { src: '/logos/keda.svg', name: 'KEDA' },
-  { src: '/logos/jaeger.svg', name: 'Jaeger' },
+  { src: '/logos/cilium.svg', name: 'Cilium', scale: 1.33 },
 ];
 
 // ---------------------------------------------------------------------------

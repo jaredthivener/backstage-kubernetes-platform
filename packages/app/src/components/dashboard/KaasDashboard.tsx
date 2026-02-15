@@ -2047,12 +2047,10 @@ export const KaasDashboard = () => {
       <Header
         title={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            <img src="/logos/kubernetes.svg" alt="Kubernetes" style={{ height: 36, width: 36 }} />
-            Kubernetes Platform
           </span>
         }
         subtitle={
-          <HeaderBannerLogos layout="dashboard" text="Morgan Stanley Kubernetes as a Service" />
+          <HeaderBannerLogos layout="dashboard" />
         }
       />
       <Content>
