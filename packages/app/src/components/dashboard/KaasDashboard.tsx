@@ -51,6 +51,9 @@ import SpeedIcon from '@material-ui/icons/Speed';
 import EmailIcon from '@material-ui/icons/Email';
 import SearchIcon from '@material-ui/icons/Search';
 import CloseIcon from '@material-ui/icons/Close';
+import CheckCircleIcon from '@material-ui/icons/CheckCircle';
+import AutorenewIcon from '@material-ui/icons/Autorenew';
+import HighlightOffIcon from '@material-ui/icons/HighlightOff';
 import {
   Header,
   Page,
@@ -193,6 +196,77 @@ const useStyles = makeStyles(theme => ({
       backgroundColor: theme.palette.action.hover,
     },
   },
+  clusterFilterBar: {
+    padding: theme.spacing(1, 2),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+  },
+  clusterFilterInput: {
+    fontSize: '0.8rem',
+    width: '100%',
+  },
+  clusterPrimaryText: {
+    fontWeight: 500,
+    fontSize: '0.86rem',
+  },
+  clusterTitleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+  },
+  clusterSecondaryText: {
+    fontSize: '0.74rem',
+    color: theme.palette.text.secondary,
+    marginTop: 2,
+  },
+  clusterTagsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  clusterTagChip: {
+    height: 20,
+    fontSize: '0.65rem',
+    borderRadius: 999,
+    '& .MuiChip-label': {
+      paddingLeft: 8,
+      paddingRight: 8,
+    },
+  },
+  clusterStatusAlert: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: 8,
+    padding: theme.spacing(0.4, 1.1),
+    minWidth: 108,
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    whiteSpace: 'nowrap',
+  },
+  clusterStatusIcon: {
+    fontSize: '0.95rem',
+  },
+  clusterStatusRunning: {
+    backgroundColor: 'rgba(46, 160, 67, 0.22)',
+    color: '#2EA043',
+    border: '1px solid rgba(46, 160, 67, 0.45)',
+  },
+  clusterStatusUpdating: {
+    backgroundColor: 'rgba(255, 165, 0, 0.22)',
+    color: '#D97706',
+    border: '1px solid rgba(255, 165, 0, 0.45)',
+  },
+  clusterStatusStopped: {
+    backgroundColor: 'rgba(244, 67, 54, 0.22)',
+    color: '#E53935',
+    border: '1px solid rgba(244, 67, 54, 0.45)',
+  },
   prRow: {
     borderLeft: `3px solid ${theme.palette.warning.main}`,
     marginBottom: theme.spacing(1),
@@ -277,12 +351,25 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     alignItems: 'center',
     gap: 4,
+    minHeight: 24,
   },
   githubReviewerAvatar: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     fontSize: '0.62rem',
-    backgroundColor: '#24292E',
+    fontWeight: 700,
+    color: '#FFFFFF',
+    border: '1px solid rgba(255,255,255,0.35)',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+  },
+  githubReviewerEmpty: {
+    fontSize: '0.72rem',
+    color: theme.palette.text.disabled,
+  },
+  githubReviewerMore: {
+    height: 20,
+    fontSize: '0.65rem',
+    fontWeight: 700,
   },
   githubChipCompact: {
     height: 20,
@@ -581,6 +668,7 @@ const MyClustersWidget = () => {
   const catalogApi = useApi(catalogApiRef);
   const [clusters, setClusters] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterQuery, setFilterQuery] = useState('');
 
   useEffect(() => {
     const fetchClusters = async () => {
@@ -615,6 +703,48 @@ const MyClustersWidget = () => {
   const getStatus = (entity: Entity) =>
     entity.metadata.annotations?.['morgan-stanley.com/cluster-status'] || 'running';
 
+  const filteredClusters = clusters.filter(cluster => {
+    const haystack = [
+      cluster.metadata.name,
+      cluster.metadata.description || '',
+      getEnv(cluster),
+      getCsp(cluster),
+      getStatus(cluster),
+      ...(cluster.metadata.tags || []),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(filterQuery.trim().toLowerCase());
+  });
+
+  const statusChipClass = (status: string) => {
+    if (status === 'running') return classes.clusterStatusRunning;
+    if (status === 'updating') return classes.clusterStatusUpdating;
+    return classes.clusterStatusStopped;
+  };
+
+  const statusIcon = (status: string) => {
+    if (status === 'running') return <CheckCircleIcon className={classes.clusterStatusIcon} />;
+    if (status === 'updating') return <AutorenewIcon className={classes.clusterStatusIcon} />;
+    return <HighlightOffIcon className={classes.clusterStatusIcon} />;
+  };
+
+  const statusLabel = (status: string) => {
+    if (status === 'running') return 'Running';
+    if (status === 'updating') return 'Updating';
+    return 'Stopped';
+  };
+
+  const applyFilterFromChip = (
+    value: string,
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setFilterQuery(value);
+  };
+
   return (
     <Card className={`${classes.widgetCard} ${classes.widgetMedium}`}>
       <CardHeader
@@ -629,30 +759,50 @@ const MyClustersWidget = () => {
       />
       <Divider />
       <CardContent style={{ padding: 0 }} className={classes.widgetBody}>
+        <Box className={classes.clusterFilterBar}>
+          <Box className={classes.githubFilter} style={{ width: '100%' }}>
+            <SearchIcon fontSize="small" color="action" />
+            <InputBase
+              placeholder="Filter clusters by name, env, cloud, status, tag"
+              className={classes.clusterFilterInput}
+              value={filterQuery}
+              onChange={event => setFilterQuery(event.target.value)}
+            />
+            {filterQuery && (
+              <IconButton size="small" onClick={() => setFilterQuery('')}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
+        </Box>
         {loading && <LinearProgress />}
-        {!loading && clusters.length === 0 && (
+        {!loading && filteredClusters.length === 0 && (
           <Box className={classes.emptyState}>
             <CloudIcon style={{ fontSize: 48, opacity: 0.3 }} />
             <Typography variant="body1" style={{ marginTop: 8 }}>
               No clusters found
             </Typography>
             <Typography variant="body2">
-              Deploy your first cluster to get started
+              {filterQuery
+                ? 'Try changing your filter'
+                : 'Deploy your first cluster to get started'}
             </Typography>
-            <Button
-              variant="outlined"
-              color="primary"
-              size="small"
-              style={{ marginTop: 16 }}
-              component={Link}
-              to="/create/templates/default/kubernetes-cluster-provisioner"
-            >
-              Deploy Cluster
-            </Button>
+            {!filterQuery && (
+              <Button
+                variant="outlined"
+                color="primary"
+                size="small"
+                style={{ marginTop: 16 }}
+                component={Link}
+                to="/create/templates/default/kubernetes-cluster-provisioner"
+              >
+                Deploy Cluster
+              </Button>
+            )}
           </Box>
         )}
         <List disablePadding>
-          {clusters.slice(0, 6).map(cluster => {
+          {filteredClusters.slice(0, 6).map(cluster => {
             const status = getStatus(cluster);
             return (
               <ListItem
@@ -673,14 +823,52 @@ const MyClustersWidget = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary={
-                    <Box display="flex" alignItems="center" gridGap={8}>
-                      <Typography variant="body1" style={{ fontWeight: 500 }}>
+                    <Box className={classes.clusterTitleRow}>
+                      <Typography className={classes.clusterPrimaryText}>
                         {cluster.metadata.name}
                       </Typography>
-                      <CspChip csp={getCsp(cluster)} />
+                      <Box className={`${classes.clusterStatusAlert} ${statusChipClass(status)}`}>
+                        {statusIcon(status)}
+                        {statusLabel(status)}
+                      </Box>
                     </Box>
                   }
-                  secondary={`Environment: ${getEnv(cluster)} · ${cluster.metadata.description || ''}`}
+                  secondary={
+                    <>
+                      <Typography className={classes.clusterSecondaryText}>
+                        {cluster.metadata.description || 'No description provided'}
+                      </Typography>
+                      <Box className={classes.clusterTagsRow}>
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`env:${getEnv(cluster)}`}
+                          className={classes.clusterTagChip}
+                          clickable
+                          onClick={event => applyFilterFromChip(getEnv(cluster), event)}
+                        />
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`cloud:${getCsp(cluster)}`}
+                          className={classes.clusterTagChip}
+                          clickable
+                          onClick={event => applyFilterFromChip(getCsp(cluster), event)}
+                        />
+                        {(cluster.metadata.tags || []).slice(0, 2).map(tag => (
+                          <Chip
+                            key={`${cluster.metadata.name}-${tag}`}
+                            size="small"
+                            variant="outlined"
+                            label={tag}
+                            className={classes.clusterTagChip}
+                            clickable
+                            onClick={event => applyFilterFromChip(tag, event)}
+                          />
+                        ))}
+                      </Box>
+                    </>
+                  }
                 />
               </ListItem>
             );
@@ -792,6 +980,14 @@ const PullRequestsWidget = () => {
     return <Chip size="small" label="Pending" className={classes.githubChipCompact} style={{ backgroundColor: 'rgba(255,152,0,0.18)', color: '#FFB74D' }} />;
   };
 
+  const reviewerColor = (reviewer: string) => {
+    const palette = ['#1F6FEB', '#7C3AED', '#0EA5A4', '#DC2626', '#D97706', '#2E7D32'];
+    const hash = reviewer
+      .split('')
+      .reduce((accumulator, character) => accumulator + character.charCodeAt(0), 0);
+    return palette[hash % palette.length];
+  };
+
   return (
     <Card className={`${classes.widgetCard} ${classes.widgetMedium}`}>
       <CardHeader
@@ -868,11 +1064,27 @@ const PullRequestsWidget = () => {
             <Box>{checkChip(pr.checkStatus)}</Box>
             <Typography className={classes.githubCellText}>{pr.newComments}</Typography>
             <Box className={classes.githubReviewers}>
+              {pr.reviewers.length === 0 && (
+                <Typography className={classes.githubReviewerEmpty}>—</Typography>
+              )}
               {pr.reviewers.slice(0, 2).map(reviewer => (
-                <Avatar key={reviewer} className={classes.githubReviewerAvatar}>
-                  {reviewer.slice(0, 2).toUpperCase()}
-                </Avatar>
+                <Tooltip key={reviewer} title={reviewer}>
+                  <Avatar
+                    className={classes.githubReviewerAvatar}
+                    style={{ backgroundColor: reviewerColor(reviewer) }}
+                  >
+                    {reviewer.slice(0, 2).toUpperCase()}
+                  </Avatar>
+                </Tooltip>
               ))}
+              {pr.reviewers.length > 2 && (
+                <Chip
+                  size="small"
+                  label={`+${pr.reviewers.length - 2}`}
+                  className={classes.githubReviewerMore}
+                  variant="outlined"
+                />
+              )}
             </Box>
             <Typography className={classes.githubCellText}>{pr.createdAt}</Typography>
             <Box display="flex" alignItems="center" justifyContent="space-between" style={{ gap: 8 }}>
