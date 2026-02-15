@@ -2089,9 +2089,21 @@ export const KaasDashboard = () => {
             </Box>
           </Box>
           <img
+            src="/logos/rick-morty.png"
+            alt="Rick and Morty"
+            className={classes.welcomeMascot}
+            style={{ right: 900, height: 200 }}
+          />
+          <img
             src="/logos/minions.png"
             alt="Minions mascot"
             className={classes.welcomeMascot}
+          />
+          <img
+            src="/logos/dexter-lab.png"
+            alt="Dexter Laboratory"
+            className={classes.welcomeMascot}
+            style={{ right: 100, height: 100 }}
           />
         </Box>
 
