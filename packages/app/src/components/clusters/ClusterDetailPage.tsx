@@ -2538,7 +2538,6 @@ const LiveSessionTab = ({ entity, clusterName, data }: { entity: Entity; cluster
       );
     } else if (/^kubectl top pod -n\s+\S+\s+\S+/.test(trimmed)) {
       const match = trimmed.match(/^kubectl top pod -n\s+(\S+)\s+(\S+)/);
-      const targetNamespace = match?.[1] ?? 'default';
       const targetPod = match?.[2] ?? 'pod';
       output.push(
         ...formatTable([
@@ -2624,7 +2623,6 @@ const LiveSessionTab = ({ entity, clusterName, data }: { entity: Entity; cluster
       );
     } else if (/^kubectl get pod -n\s+\S+\s+\S+\s+-o wide$/.test(trimmed)) {
       const match = trimmed.match(/^kubectl get pod -n\s+(\S+)\s+(\S+)\s+-o wide$/);
-      const targetNamespace = match?.[1] ?? 'default';
       const targetPod = match?.[2] ?? 'pod';
       output.push(
         ...formatTable([
@@ -2634,7 +2632,6 @@ const LiveSessionTab = ({ entity, clusterName, data }: { entity: Entity; cluster
       );
     } else if (/^kubectl get pod -n\s+\S+\s+\S+$/.test(trimmed)) {
       const match = trimmed.match(/^kubectl get pod -n\s+(\S+)\s+(\S+)$/);
-      const targetNamespace = match?.[1] ?? 'default';
       const targetPod = match?.[2] ?? 'pod';
       output.push(
         ...formatTable([
@@ -2677,8 +2674,6 @@ const LiveSessionTab = ({ entity, clusterName, data }: { entity: Entity; cluster
         ]),
       );
     } else if (/^kubectl get events -n\s+\S+\s+--sort-by=\.lastTimestamp$/.test(trimmed)) {
-      const match = trimmed.match(/^kubectl get events -n\s+(\S+)\s+--sort-by=\.lastTimestamp$/);
-      const targetNamespace = match?.[1] ?? 'default';
       output.push(
         ...formatTable([
           ['LAST SEEN', 'TYPE', 'REASON', 'OBJECT', 'MESSAGE'],

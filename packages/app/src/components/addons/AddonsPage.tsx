@@ -16,6 +16,14 @@ import { Link } from 'react-router-dom';
 import { HeaderBannerLogos } from '../shared/HeaderBannerLogos';
 
 const useStyles = makeStyles(theme => ({
+  '@keyframes glow': {
+    '0%, 100%': {
+      boxShadow: '0 0 8px rgba(255, 107, 53, 0.6), 0 0 12px rgba(255, 107, 53, 0.4)',
+    },
+    '50%': {
+      boxShadow: '0 0 12px rgba(255, 107, 53, 0.8), 0 0 20px rgba(255, 107, 53, 0.6)',
+    },
+  },
   subtitle: {
     color: theme.palette.text.secondary,
     marginBottom: theme.spacing(3),
@@ -72,6 +80,22 @@ const useStyles = makeStyles(theme => ({
     gap: theme.spacing(1),
     padding: theme.spacing(0, 2, 2),
   },
+  versionContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+  },
+  newBadge: {
+    background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)',
+    color: '#fff',
+    fontSize: '0.65rem',
+    fontWeight: 900,
+    padding: '2px 6px',
+    borderRadius: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    animation: '$glow 2s ease-in-out infinite',
+  },
 }));
 
 type Addon = {
@@ -83,6 +107,7 @@ type Addon = {
   logoWrapStyle?: React.CSSProperties;
   docsUrl: string;
   quickStartUrl?: string;
+  isNew?: boolean;
 };
 
 const addons: Addon[] = [
@@ -110,6 +135,7 @@ const addons: Addon[] = [
     logoStyle: { width: '100%', height: '100%' },
     docsUrl: 'https://karpenter.sh/docs/',
     quickStartUrl: '/docs',
+    isNew: true,
   },
   {
     name: 'ArgoCD',
@@ -153,6 +179,7 @@ const addons: Addon[] = [
     logoStyle: { width: '100%', height: '100%' },
     docsUrl: 'https://kubernetes-sigs.github.io/external-dns/latest/',
     quickStartUrl: '/docs',
+    isNew: true,
   },
   {
     name: 'cert-manager',
@@ -180,6 +207,7 @@ const addons: Addon[] = [
     logoWrapStyle: { background: '#ffffff' },
     docsUrl: 'https://grafana.com/docs/loki/latest/',
     quickStartUrl: '/docs',
+    isNew: true,
   },
 ];
 
@@ -214,7 +242,10 @@ export const AddonsPage = () => {
                       </Box>
                       <Typography className={classes.addonName}>{addon.name}</Typography>
                     </Box>
-                    <Chip size="small" color="primary" label={`v${addon.version}`} />
+                    <Box className={classes.versionContainer}>
+                      <Chip size="small" color="primary" label={`v${addon.version}`} />
+                      {addon.isNew && <span className={classes.newBadge}>NEW</span>}
+                    </Box>
                   </Box>
                   <Typography className={classes.addonDesc}>{addon.description}</Typography>
                 </CardContent>
