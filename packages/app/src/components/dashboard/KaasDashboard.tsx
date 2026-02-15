@@ -2099,6 +2099,7 @@ export const KaasDashboard = () => {
             src="/logos/minions.png"
             alt="Minions mascot"
             className={classes.welcomeMascot}
+            style={{ right: 600, height: 180 }}
           />
           <img
             src="/logos/bender.png"

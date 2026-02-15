@@ -20,6 +20,7 @@ import {
   Avatar,
   Tooltip,
   Button,
+  IconButton,
   LinearProgress,
   Divider,
 } from '@material-ui/core';
@@ -28,6 +29,7 @@ import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import PhoneIcon from '@material-ui/icons/Phone';
 import WarningIcon from '@material-ui/icons/Warning';
 import ErrorIcon from '@material-ui/icons/Error';
+import EmailIcon from '@material-ui/icons/Email';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
 import AddIcon from '@material-ui/icons/Add';
@@ -548,6 +550,99 @@ export const SupportPage = () => {
                 </TableContainer>
               </CardContent>
             </Card>
+
+            {/* Quick Stats */}
+            <Box mt={3}>
+              <Card className={classes.statCard}>
+                <CardContent>
+                  <Typography variant="h6" style={{ fontWeight: 600, marginBottom: 12 }}>
+                    <AccessTimeIcon style={{ fontSize: 20, marginRight: 6, verticalAlign: 'middle' }} />
+                    Response Metrics
+                  </Typography>
+                  {[
+                    { label: 'Mean Time to Acknowledge', value: '8 min', trend: '↓ 12%', trendColor: '#4CAF50' },
+                    { label: 'Mean Time to Resolve', value: '3.4 hrs', trend: '↓ 8%', trendColor: '#4CAF50' },
+                    { label: 'Escalation Rate', value: '13.6%', trend: '↑ 2%', trendColor: '#F44336' },
+                    { label: 'SLA Compliance', value: '97.2%', trend: '↑ 1.5%', trendColor: '#4CAF50' },
+                    { label: 'Open > 24h', value: '3', trend: '↓ 1', trendColor: '#4CAF50' },
+                  ].map(metric => (
+                    <Box key={metric.label} display="flex" justifyContent="space-between" alignItems="center" py={0.8}
+                      style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+                    >
+                      <Typography variant="body2" color="textSecondary">{metric.label}</Typography>
+                      <Box display="flex" alignItems="center" gridGap={8}>
+                        <Typography variant="body2" style={{ fontWeight: 700 }}>{metric.value}</Typography>
+                        <Typography variant="caption" style={{ color: metric.trendColor, fontWeight: 600 }}>
+                          {metric.trend}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </CardContent>
+              </Card>
+            </Box>
+
+            {/* Escalation Contacts */}
+            <Box mt={3}>
+              <Card className={classes.statCard}>
+                <CardContent>
+                  <Typography variant="h6" style={{ fontWeight: 600, marginBottom: 12 }}>
+                    <ErrorIcon style={{ fontSize: 20, marginRight: 6, verticalAlign: 'middle', color: '#F44336' }} />
+                    Escalation Contacts
+                  </Typography>
+                  {[
+                    { name: 'VP of Infrastructure', person: 'Richard Torres', phone: '+1 (212) 555-0100', email: 'richard.torres@morganstanley.com', teamsUser: 'richard.torres@morganstanley.com' },
+                    { name: 'Director of SRE', person: 'Elena Volkov', phone: '+1 (212) 555-0200', email: 'elena.volkov@morganstanley.com', teamsUser: 'elena.volkov@morganstanley.com' },
+                    { name: 'Platform Engineering Lead', person: 'Kevin Walsh', phone: '+1 (415) 555-0300', email: 'kevin.walsh@morganstanley.com', teamsUser: 'kevin.walsh@morganstanley.com' },
+                    { name: 'Security Incident Response', person: 'Nadia Patel', phone: '+1 (646) 555-0400', email: 'nadia.patel@morganstanley.com', teamsUser: 'nadia.patel@morganstanley.com' },
+                  ].map(contact => (
+                    <Box key={contact.name} display="flex" justifyContent="space-between" alignItems="center" py={1}
+                      style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+                    >
+                      <Box>
+                        <Typography variant="body2" style={{ fontWeight: 600 }}>{contact.name}</Typography>
+                        <Typography variant="caption" color="textSecondary">{contact.person}</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gridGap={6}>
+                        <Tooltip title={`Call ${contact.phone}`}>
+                          <IconButton
+                            size="small"
+                            href={`tel:${contact.phone.replace(/[^+\d]/g, '')}`}
+                            aria-label={`Call ${contact.person}`}
+                          >
+                            <PhoneIcon style={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Chat in Microsoft Teams">
+                          <IconButton
+                            size="small"
+                            href={`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(contact.teamsUser)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Chat with ${contact.person} in Microsoft Teams`}
+                          >
+                            <img
+                              src="/logos/microsoft-teams.svg"
+                              alt="Microsoft Teams"
+                              style={{ width: 16, height: 16 }}
+                            />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={`Email ${contact.person}`}>
+                          <IconButton
+                            size="small"
+                            href={`mailto:${contact.email}`}
+                            aria-label={`Email ${contact.person}`}
+                          >
+                            <EmailIcon style={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                  ))}
+                </CardContent>
+              </Card>
+            </Box>
           </Grid>
 
           {/* Right column — On-Call Schedule */}
@@ -612,76 +707,45 @@ export const SupportPage = () => {
                         {person.timezone}
                       </Typography>
                     </Box>
-                    <Tooltip title={`Call ${person.phone}`}>
-                      <PhoneIcon style={{ fontSize: 16, color: '#9E9E9E', cursor: 'pointer' }} />
-                    </Tooltip>
+                    <Box display="flex" alignItems="center" gridGap={6}>
+                      <Tooltip title={`Call ${person.phone}`}>
+                        <IconButton
+                          size="small"
+                          href={`tel:${person.phone.replace(/[^+\d]/g, '')}`}
+                          aria-label={`Call ${person.name}`}
+                        >
+                          <PhoneIcon style={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Chat in Microsoft Teams">
+                        <IconButton
+                          size="small"
+                          href={`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(`${person.slackHandle.replace('@', '')}@morganstanley.com`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Chat with ${person.name} in Microsoft Teams`}
+                        >
+                          <img
+                            src="/logos/microsoft-teams.svg"
+                            alt="Microsoft Teams"
+                            style={{ width: 16, height: 16 }}
+                          />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={`Email ${person.name}`}>
+                        <IconButton
+                          size="small"
+                          href={`mailto:${person.slackHandle.replace('@', '')}@morganstanley.com`}
+                          aria-label={`Email ${person.name}`}
+                        >
+                          <EmailIcon style={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </Box>
                 ))}
               </CardContent>
             </Card>
-
-            {/* Quick Stats */}
-            <Box mt={3}>
-              <Card className={classes.statCard}>
-                <CardContent>
-                  <Typography variant="h6" style={{ fontWeight: 600, marginBottom: 12 }}>
-                    <AccessTimeIcon style={{ fontSize: 20, marginRight: 6, verticalAlign: 'middle' }} />
-                    Response Metrics
-                  </Typography>
-                  {[
-                    { label: 'Mean Time to Acknowledge', value: '8 min', trend: '↓ 12%', trendColor: '#4CAF50' },
-                    { label: 'Mean Time to Resolve', value: '3.4 hrs', trend: '↓ 8%', trendColor: '#4CAF50' },
-                    { label: 'Escalation Rate', value: '13.6%', trend: '↑ 2%', trendColor: '#F44336' },
-                    { label: 'SLA Compliance', value: '97.2%', trend: '↑ 1.5%', trendColor: '#4CAF50' },
-                    { label: 'Open > 24h', value: '3', trend: '↓ 1', trendColor: '#4CAF50' },
-                  ].map(metric => (
-                    <Box key={metric.label} display="flex" justifyContent="space-between" alignItems="center" py={0.8}
-                      style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
-                    >
-                      <Typography variant="body2" color="textSecondary">{metric.label}</Typography>
-                      <Box display="flex" alignItems="center" gridGap={8}>
-                        <Typography variant="body2" style={{ fontWeight: 700 }}>{metric.value}</Typography>
-                        <Typography variant="caption" style={{ color: metric.trendColor, fontWeight: 600 }}>
-                          {metric.trend}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </CardContent>
-              </Card>
-            </Box>
-
-            {/* Escalation Contacts */}
-            <Box mt={3}>
-              <Card className={classes.statCard}>
-                <CardContent>
-                  <Typography variant="h6" style={{ fontWeight: 600, marginBottom: 12 }}>
-                    <ErrorIcon style={{ fontSize: 20, marginRight: 6, verticalAlign: 'middle', color: '#F44336' }} />
-                    Escalation Contacts
-                  </Typography>
-                  {[
-                    { name: 'VP of Infrastructure', person: 'Richard Torres', phone: '+1 (212) 555-0100' },
-                    { name: 'Director of SRE', person: 'Elena Volkov', phone: '+1 (212) 555-0200' },
-                    { name: 'Platform Engineering Lead', person: 'Kevin Walsh', phone: '+1 (415) 555-0300' },
-                    { name: 'Security Incident Response', person: 'Nadia Patel', phone: '+1 (646) 555-0400' },
-                  ].map(contact => (
-                    <Box key={contact.name} display="flex" justifyContent="space-between" alignItems="center" py={1}
-                      style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
-                    >
-                      <Box>
-                        <Typography variant="body2" style={{ fontWeight: 600 }}>{contact.name}</Typography>
-                        <Typography variant="caption" color="textSecondary">{contact.person}</Typography>
-                      </Box>
-                      <Tooltip title={`Call ${contact.phone}`}>
-                        <Typography variant="caption" style={{ color: '#1976D2', cursor: 'pointer', fontWeight: 500 }}>
-                          {contact.phone}
-                        </Typography>
-                      </Tooltip>
-                    </Box>
-                  ))}
-                </CardContent>
-              </Card>
-            </Box>
           </Grid>
         </Grid>
       </Content>

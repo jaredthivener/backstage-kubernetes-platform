@@ -725,14 +725,14 @@ export const DocsPage = () => {
             Can't find what you're looking for?
           </Typography>
           <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
-            Reach out to the Platform Engineering team via Slack or open a support ticket.
+            Reach out to the Platform Engineering team via Microsoft Teams or open a support ticket.
           </Typography>
           <Box display="flex" justifyContent="center" gridGap={12}>
             <Button variant="outlined" color="primary" component={Link} to="/create">
               Open Support Ticket
             </Button>
-            <Button variant="text" color="primary" href="https://slack.com" target="_blank">
-              #kubernetes-platform on Slack
+            <Button variant="text" color="primary" href="https://teams.microsoft.com" target="_blank">
+              #kubernetes-platform on Microsoft Teams
             </Button>
           </Box>
         </Box>
