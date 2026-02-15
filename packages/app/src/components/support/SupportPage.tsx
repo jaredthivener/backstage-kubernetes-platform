@@ -448,10 +448,10 @@ export const SupportPage = () => {
                       <Typography className={classes.statLabel}>total requests</Typography>
                     </Box>
                     <Box textAlign="right">
-                      <Typography variant="caption" style={{ fontWeight: 600 }}>
+                      <Typography variant="caption" style={{ fontWeight: 600, color: '#fff' }}>
                         Avg Resolution
                       </Typography>
-                      <Typography variant="h6" style={{ fontWeight: 700, color: '#333' }}>
+                      <Typography variant="h6" style={{ fontWeight: 700, color: '#fff' }}>
                         {cat.stats.avgResolution}
                       </Typography>
                     </Box>
