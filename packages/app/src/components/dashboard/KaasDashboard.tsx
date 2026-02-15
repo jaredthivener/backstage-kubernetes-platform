@@ -1750,7 +1750,7 @@ const NewsTicker = () => {
       id: 2,
       type: 'update',
       icon: <UpdateIcon />,
-      text: '🚀 New: ArgoCD v2.10 now available with enhanced security features and improved GitOps workflows',
+      text: '🚀 New: ArgoCD v3.30 now available with enhanced security features and improved GitOps workflows',
       color: '#2196F3',
     },
     {
@@ -1764,7 +1764,7 @@ const NewsTicker = () => {
       id: 4,
       type: 'tip',
       icon: <TipsAndUpdatesIcon />,
-      text: '💡 Best Practice: Enable pod security policies to enforce security standards across all namespaces',
+      text: '💡 Best Practice: Enable network policies to enforce security standards across all namespaces',
       color: '#FF9800',
     },
     {
@@ -1785,7 +1785,7 @@ const NewsTicker = () => {
       id: 7,
       type: 'docs',
       icon: <SchoolIcon />,
-      text: '📚 New Documentation: Kubernetes 1.30 migration guide with step-by-step instructions now available',
+      text: '📚 New Documentation: Kubernetes 1.33 migration guide with step-by-step instructions now available',
       color: '#00BCD4',
     },
     {
