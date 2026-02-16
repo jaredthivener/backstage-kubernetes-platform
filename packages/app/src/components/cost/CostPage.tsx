@@ -37,6 +37,7 @@ import SpeedIcon from '@material-ui/icons/Speed';
 import ScheduleIcon from '@material-ui/icons/Schedule';
 import WarningIcon from '@material-ui/icons/Warning';
 import { Link } from 'react-router-dom';
+import { demoClusters } from '../../data/demoData';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -180,74 +181,81 @@ interface NamespaceCost {
 const genDailyCosts = (base: number, variance: number, days: number): number[] =>
   Array.from({ length: days }, () => Math.round(base + (Math.random() - 0.5) * variance));
 
-const clusterCosts: ClusterCost[] = [
-  {
-    name: 'prod-trading-aks', csp: 'azure', environment: 'production', region: 'eastus',
+const clusterCostMetrics: Record<string, Omit<ClusterCost, 'name' | 'csp' | 'environment' | 'region'>> = {
+  'prod-trading-aks': {
     nodeCount: 12, monthlyCost: 8420, costTrend: 3.2,
     dailyCosts: genDailyCosts(280, 30, 30),
     computeCost: 5894, storageCost: 1263, networkCost: 842, otherCost: 421,
   },
-  {
-    name: 'prod-analytics-eks', csp: 'aws', environment: 'production', region: 'us-east-1',
+  'prod-analytics-eks': {
     nodeCount: 24, monthlyCost: 14200, costTrend: 5.1,
     dailyCosts: genDailyCosts(473, 40, 30),
     computeCost: 9940, storageCost: 2130, networkCost: 1420, otherCost: 710,
   },
-  {
-    name: 'prod-risk-gke', csp: 'gcp', environment: 'production', region: 'us-central1',
+  'prod-risk-gke': {
     nodeCount: 8, monthlyCost: 6340, costTrend: -1.8,
     dailyCosts: genDailyCosts(211, 20, 30),
     computeCost: 4438, storageCost: 951, networkCost: 634, otherCost: 317,
   },
-  {
-    name: 'staging-risk-eks', csp: 'aws', environment: 'staging', region: 'us-west-2',
+  'staging-risk-eks': {
     nodeCount: 6, monthlyCost: 3180, costTrend: 0.5,
     dailyCosts: genDailyCosts(106, 12, 30),
     computeCost: 2226, storageCost: 477, networkCost: 318, otherCost: 159,
   },
-  {
-    name: 'dev-sandbox-aks', csp: 'azure', environment: 'development', region: 'westus2',
+  'dev-sandbox-aks': {
     nodeCount: 4, monthlyCost: 1240, costTrend: -2.3,
     dailyCosts: genDailyCosts(41, 8, 30),
     computeCost: 868, storageCost: 186, networkCost: 124, otherCost: 62,
   },
-  {
-    name: 'dev-ml-gke', csp: 'gcp', environment: 'development', region: 'europe-west1',
+  'dev-ml-gke': {
     nodeCount: 6, monthlyCost: 4560, costTrend: 8.7,
     dailyCosts: genDailyCosts(152, 24, 30),
     computeCost: 3192, storageCost: 684, networkCost: 456, otherCost: 228,
   },
-  {
-    name: 'qa-payments-aks', csp: 'azure', environment: 'staging', region: 'centralus',
+  'qa-payments-aks': {
     nodeCount: 5, monthlyCost: 2720, costTrend: 1.4,
     dailyCosts: genDailyCosts(91, 14, 30),
     computeCost: 1822, storageCost: 490, networkCost: 272, otherCost: 136,
   },
-  {
-    name: 'prod-payments-eks', csp: 'aws', environment: 'production', region: 'us-east-2',
+  'prod-payments-eks': {
     nodeCount: 10, monthlyCost: 7680, costTrend: 2.1,
     dailyCosts: genDailyCosts(256, 22, 30),
     computeCost: 5299, storageCost: 1382, networkCost: 768, otherCost: 231,
   },
-  {
-    name: 'staging-ops-gke', csp: 'gcp', environment: 'staging', region: 'us-west1',
+  'staging-ops-gke': {
     nodeCount: 4, monthlyCost: 2140, costTrend: -0.9,
     dailyCosts: genDailyCosts(71, 10, 30),
     computeCost: 1455, storageCost: 428, networkCost: 214, otherCost: 43,
   },
-  {
-    name: 'dev-observability-aks', csp: 'azure', environment: 'development', region: 'eastus2',
+  'dev-observability-aks': {
     nodeCount: 3, monthlyCost: 1380, costTrend: -1.6,
     dailyCosts: genDailyCosts(46, 8, 30),
     computeCost: 897, storageCost: 276, networkCost: 138, otherCost: 69,
   },
-  {
-    name: 'qa-observability-eks', csp: 'aws', environment: 'staging', region: 'us-west-1',
+  'qa-observability-eks': {
     nodeCount: 4, monthlyCost: 1960, costTrend: 0.9,
     dailyCosts: genDailyCosts(65, 10, 30),
     computeCost: 1294, storageCost: 372, networkCost: 196, otherCost: 98,
   },
-];
+};
+
+const clusterCosts: ClusterCost[] = demoClusters.map(cluster => {
+  const metrics = clusterCostMetrics[cluster.name];
+  return {
+    name: cluster.name,
+    csp: cluster.csp,
+    environment: cluster.environment,
+    region: cluster.region,
+    nodeCount: metrics?.nodeCount ?? 3,
+    monthlyCost: metrics?.monthlyCost ?? 1000,
+    costTrend: metrics?.costTrend ?? 0,
+    dailyCosts: metrics?.dailyCosts ?? genDailyCosts(40, 6, 30),
+    computeCost: metrics?.computeCost ?? 700,
+    storageCost: metrics?.storageCost ?? 200,
+    networkCost: metrics?.networkCost ?? 80,
+    otherCost: metrics?.otherCost ?? 20,
+  };
+});
 
 const nodepoolCosts: NodepoolCost[] = [
   // prod-trading-aks

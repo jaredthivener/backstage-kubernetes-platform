@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -26,6 +26,7 @@ import HighlightIcon from '@material-ui/icons/Highlight';
 import AttachFileIcon from '@material-ui/icons/AttachFile';
 import { Header, Page, Content } from '@backstage/core-components';
 import { HeaderBannerLogos } from '../shared/HeaderBannerLogos';
+import { demoClusters } from '../../data/demoData';
 
 const useStyles = makeStyles(theme => ({
   heroBanner: {
@@ -91,11 +92,22 @@ export const NewSupportRequestPage = () => {
   const [requestType, setRequestType] = useState('kubernetes');
   const [priority, setPriority] = useState('medium');
   const [csp, setCsp] = useState('azure');
-  const [cluster, setCluster] = useState('prod-us-east-1');
+  const [cluster, setCluster] = useState('prod-trading-aks');
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const descriptionInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  const cspClusters = useMemo(
+    () => demoClusters.filter(item => item.csp === csp),
+    [csp],
+  );
+
+  useEffect(() => {
+    if (!cspClusters.find(item => item.name === cluster)) {
+      setCluster(cspClusters[0]?.name ?? '');
+    }
+  }, [cluster, cspClusters]);
 
   const handleAttachmentChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files ? Array.from(event.target.files) : [];
@@ -256,10 +268,9 @@ export const NewSupportRequestPage = () => {
                           onChange={event => setCluster(event.target.value as string)}
                           label="Cluster"
                         >
-                          <MenuItem value="prod-us-east-1">prod-us-east-1</MenuItem>
-                          <MenuItem value="prod-eu-west-1">prod-eu-west-1</MenuItem>
-                          <MenuItem value="staging-us-west-2">staging-us-west-2</MenuItem>
-                          <MenuItem value="dev-us-east-2">dev-us-east-2</MenuItem>
+                          {cspClusters.map(item => (
+                            <MenuItem key={item.name} value={item.name}>{item.name}</MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                     </Grid>

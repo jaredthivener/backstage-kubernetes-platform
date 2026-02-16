@@ -39,6 +39,7 @@ import {
   Page,
   Content,
 } from '@backstage/core-components';
+import { demoClusters } from '../../data/demoData';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -407,6 +408,57 @@ const clusterMetricsData: Record<string, ClusterMetrics> = {
   },
 };
 
+const clusterMetricAliases: Record<string, string> = {
+  'dev-sandbox-aks': 'prod-settlement-aks',
+  'dev-ml-gke': 'dev-platform-gke',
+  'staging-ops-gke': 'staging-wealth-gke',
+};
+
+const clusterMetricsDataByDemo: Record<string, ClusterMetrics> = demoClusters.reduce((acc, cluster) => {
+  const sourceName = clusterMetricsData[cluster.name]
+    ? cluster.name
+    : clusterMetricAliases[cluster.name];
+  const source = sourceName ? clusterMetricsData[sourceName] : undefined;
+
+  acc[cluster.name] = source
+    ? {
+      ...source,
+      name: cluster.name,
+      csp: cluster.csp,
+    }
+    : {
+      name: cluster.name,
+      csp: cluster.csp,
+      cpuUsage: 35,
+      cpuCapacity: 100,
+      memoryUsage: 40,
+      memoryCapacity: 100,
+      podCount: 110,
+      podCapacity: 200,
+      nodeCount: 5,
+      networkIn: 1.0,
+      networkOut: 0.7,
+      apiLatencyP99: 100,
+      etcdLatency: 8,
+      cpuHistory: genHistory(35, 10),
+      memHistory: genHistory(40, 12),
+      podHistory: genHistory(110, 14),
+      componentHealth: {
+        apiServer: 'healthy',
+        etcd: 'healthy',
+        scheduler: 'healthy',
+        controllerManager: 'healthy',
+        coreDns: 'healthy',
+        ingressController: 'healthy',
+        cni: 'healthy',
+        csi: 'healthy',
+      },
+      alerts: [],
+    };
+
+  return acc;
+}, {} as Record<string, ClusterMetrics>);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -559,10 +611,10 @@ const Sparkline = ({ data, color, height = 40 }: { data: number[]; color: string
 // ---------------------------------------------------------------------------
 export const MonitoringPage = () => {
   const classes = useStyles();
-  const clusterNames = Object.keys(clusterMetricsData);
+  const clusterNames = Object.keys(clusterMetricsDataByDemo);
   const [selectedCluster, setSelectedCluster] = useState(clusterNames[0]);
   const [tabValue, setTabValue] = useState(0);
-  const metrics = clusterMetricsData[selectedCluster];
+  const metrics = clusterMetricsDataByDemo[selectedCluster];
 
   const cpuPct = metrics.cpuUsage;
   const memPct = metrics.memoryUsage;
@@ -590,7 +642,7 @@ export const MonitoringPage = () => {
                 <MenuItem key={name} value={name}>
                   <Box display="flex" alignItems="center" style={{ gap: 8 }}>
                     {name}
-                    <CspChip csp={clusterMetricsData[name].csp} />
+                    <CspChip csp={clusterMetricsDataByDemo[name].csp} />
                   </Box>
                 </MenuItem>
               ))}
@@ -1128,7 +1180,7 @@ export const MonitoringPage = () => {
               <Box mt={4}>
                 <Typography variant="h6" gutterBottom>Alert Summary Across All Clusters</Typography>
                 <Grid container spacing={2}>
-                  {Object.values(clusterMetricsData).map(cm => (
+                  {Object.values(clusterMetricsDataByDemo).map(cm => (
                     <Grid item xs={12} sm={6} md={4} key={cm.name}>
                       <Card variant="outlined" style={{ borderRadius: 12, cursor: 'pointer' }} onClick={() => { setSelectedCluster(cm.name); setTabValue(0); }}>
                         <CardContent style={{ padding: 16 }}>

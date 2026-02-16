@@ -796,7 +796,7 @@ export const DoraMetricsPage = () => {
   const overallTier: MetricTier = 'elite';
 
   return (
-    <Page themeId="service">
+    <Page themeId="tool">
       <Header
         title="DORA Metrics"
         subtitle={

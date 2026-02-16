@@ -59,6 +59,7 @@ import {
   morganStanleyLightTheme,
   morganStanleyDarkTheme,
 } from './theme/morganStanleyTheme';
+import { DemoPlatformProvider } from './components/shared/DemoPlatformContext';
 
 const app = createApp({
   apis,
@@ -177,7 +178,9 @@ export default app.createRoot(
     <OAuthRequestDialog />
     <SignalsDisplay />
     <AppRouter>
-      <Root>{routes}</Root>
+      <DemoPlatformProvider>
+        <Root>{routes}</Root>
+      </DemoPlatformProvider>
     </AppRouter>
   </>,
 );
