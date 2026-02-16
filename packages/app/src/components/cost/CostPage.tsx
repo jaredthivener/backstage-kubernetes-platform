@@ -214,8 +214,38 @@ const clusterCosts: ClusterCost[] = [
   {
     name: 'dev-ml-gke', csp: 'gcp', environment: 'development', region: 'europe-west1',
     nodeCount: 6, monthlyCost: 4560, costTrend: 8.7,
-    dailyCosts: genDailyCosts(152, 25, 30),
+    dailyCosts: genDailyCosts(152, 24, 30),
     computeCost: 3192, storageCost: 684, networkCost: 456, otherCost: 228,
+  },
+  {
+    name: 'qa-payments-aks', csp: 'azure', environment: 'staging', region: 'centralus',
+    nodeCount: 5, monthlyCost: 2720, costTrend: 1.4,
+    dailyCosts: genDailyCosts(91, 14, 30),
+    computeCost: 1822, storageCost: 490, networkCost: 272, otherCost: 136,
+  },
+  {
+    name: 'prod-payments-eks', csp: 'aws', environment: 'production', region: 'us-east-2',
+    nodeCount: 10, monthlyCost: 7680, costTrend: 2.1,
+    dailyCosts: genDailyCosts(256, 22, 30),
+    computeCost: 5299, storageCost: 1382, networkCost: 768, otherCost: 231,
+  },
+  {
+    name: 'staging-ops-gke', csp: 'gcp', environment: 'staging', region: 'us-west1',
+    nodeCount: 4, monthlyCost: 2140, costTrend: -0.9,
+    dailyCosts: genDailyCosts(71, 10, 30),
+    computeCost: 1455, storageCost: 428, networkCost: 214, otherCost: 43,
+  },
+  {
+    name: 'dev-observability-aks', csp: 'azure', environment: 'development', region: 'eastus2',
+    nodeCount: 3, monthlyCost: 1380, costTrend: -1.6,
+    dailyCosts: genDailyCosts(46, 8, 30),
+    computeCost: 897, storageCost: 276, networkCost: 138, otherCost: 69,
+  },
+  {
+    name: 'qa-observability-eks', csp: 'aws', environment: 'staging', region: 'us-west-1',
+    nodeCount: 4, monthlyCost: 1960, costTrend: 0.9,
+    dailyCosts: genDailyCosts(65, 10, 30),
+    computeCost: 1294, storageCost: 372, networkCost: 196, otherCost: 98,
   },
 ];
 
