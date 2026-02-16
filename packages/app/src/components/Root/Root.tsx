@@ -55,6 +55,7 @@ import GroupIcon from '@material-ui/icons/People';
 import { NotificationsSidebarItem } from '@backstage/plugin-notifications';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import GroupIconOutlined from '@material-ui/icons/GroupOutlined';
+import ExitToAppIcon from '@material-ui/icons/ExitToApp';
 import { useState } from 'react';
 import { useDemoPlatform } from '../shared/DemoPlatformContext';
 
@@ -128,13 +129,18 @@ const useProfileStyles = makeStyles(theme => ({
 
 const ProfileSection = () => {
   const classes = useProfileStyles();
-  const { currentPersona, personas, teamMembers, setPersona } = useDemoPlatform();
+  const { currentPersona, teamMembers } = useDemoPlatform();
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
 
   const menuOpen = Boolean(menuAnchorEl);
   const openProfileMenu = (event: React.MouseEvent<HTMLElement>) => {
     setMenuAnchorEl(event.currentTarget);
+  };
+
+  const signOff = () => {
+    setMenuAnchorEl(null);
+    window.location.reload();
   };
 
   return (
@@ -180,25 +186,6 @@ const ProfileSection = () => {
           </Box>
         </MenuItem>
         <Divider />
-        <MenuItem disabled>
-          <Typography variant="caption" color="textSecondary">Switch Persona</Typography>
-        </MenuItem>
-        {personas.map(persona => (
-          <MenuItem
-            key={persona.id}
-            selected={persona.id === currentPersona.id}
-            onClick={() => {
-              setPersona(persona.id);
-              setMenuAnchorEl(null);
-            }}
-          >
-            <Box>
-              <Typography variant="body2">{persona.name}</Typography>
-              <Typography variant="caption" color="textSecondary">{persona.role} • {persona.team}</Typography>
-            </Box>
-          </MenuItem>
-        ))}
-        <Divider />
         <MenuItem
           onClick={() => {
             setMenuAnchorEl(null);
@@ -207,6 +194,11 @@ const ProfileSection = () => {
         >
           <GroupIconOutlined fontSize="small" style={{ marginRight: 8 }} />
           View Team Roles
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={signOff}>
+          <ExitToAppIcon fontSize="small" style={{ marginRight: 8 }} />
+          Sign Off
         </MenuItem>
       </Menu>
 
