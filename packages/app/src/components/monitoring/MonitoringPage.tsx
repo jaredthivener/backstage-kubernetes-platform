@@ -354,6 +354,57 @@ const clusterMetricsData: Record<string, ClusterMetrics> = {
       { severity: 'warning', message: 'CoreDNS latency >200ms for external queries', since: '8 min ago' },
     ],
   },
+  'prod-risk-gke': {
+    name: 'prod-risk-gke', csp: 'gcp',
+    cpuUsage: 64, cpuCapacity: 100, memoryUsage: 59, memoryCapacity: 100,
+    podCount: 176, podCapacity: 260, nodeCount: 9,
+    networkIn: 2.9, networkOut: 1.8, apiLatencyP99: 141, etcdLatency: 13,
+    cpuHistory: genHistory(64, 16), memHistory: genHistory(59, 12), podHistory: genHistory(176, 20),
+    componentHealth: { apiServer: 'healthy', etcd: 'healthy', scheduler: 'healthy', controllerManager: 'healthy', coreDns: 'healthy', ingressController: 'healthy', cni: 'healthy', csi: 'healthy' },
+    alerts: [
+      { severity: 'warning', message: 'Pod restart rate increased in risk-engine namespace', since: '22 min ago' },
+    ],
+  },
+  'qa-payments-aks': {
+    name: 'qa-payments-aks', csp: 'azure',
+    cpuUsage: 41, cpuCapacity: 100, memoryUsage: 46, memoryCapacity: 100,
+    podCount: 114, podCapacity: 180, nodeCount: 6,
+    networkIn: 1.4, networkOut: 0.9, apiLatencyP99: 104, etcdLatency: 9,
+    cpuHistory: genHistory(41, 14), memHistory: genHistory(46, 10), podHistory: genHistory(114, 14),
+    componentHealth: { apiServer: 'healthy', etcd: 'healthy', scheduler: 'healthy', controllerManager: 'healthy', coreDns: 'healthy', ingressController: 'healthy', cni: 'healthy', csi: 'healthy' },
+    alerts: [],
+  },
+  'prod-payments-eks': {
+    name: 'prod-payments-eks', csp: 'aws',
+    cpuUsage: 69, cpuCapacity: 100, memoryUsage: 74, memoryCapacity: 100,
+    podCount: 258, podCapacity: 360, nodeCount: 13,
+    networkIn: 4.8, networkOut: 3.1, apiLatencyP99: 152, etcdLatency: 14,
+    cpuHistory: genHistory(69, 18), memHistory: genHistory(74, 14), podHistory: genHistory(258, 28),
+    componentHealth: { apiServer: 'healthy', etcd: 'healthy', scheduler: 'healthy', controllerManager: 'healthy', coreDns: 'healthy', ingressController: 'degraded', cni: 'healthy', csi: 'healthy' },
+    alerts: [
+      { severity: 'warning', message: 'Ingress 5xx rate elevated for payments-api', since: '12 min ago' },
+    ],
+  },
+  'dev-observability-aks': {
+    name: 'dev-observability-aks', csp: 'azure',
+    cpuUsage: 33, cpuCapacity: 100, memoryUsage: 38, memoryCapacity: 100,
+    podCount: 92, podCapacity: 170, nodeCount: 5,
+    networkIn: 1.1, networkOut: 0.7, apiLatencyP99: 88, etcdLatency: 7,
+    cpuHistory: genHistory(33, 11), memHistory: genHistory(38, 10), podHistory: genHistory(92, 13),
+    componentHealth: { apiServer: 'healthy', etcd: 'healthy', scheduler: 'healthy', controllerManager: 'healthy', coreDns: 'healthy', ingressController: 'healthy', cni: 'healthy', csi: 'healthy' },
+    alerts: [],
+  },
+  'qa-observability-eks': {
+    name: 'qa-observability-eks', csp: 'aws',
+    cpuUsage: 47, cpuCapacity: 100, memoryUsage: 53, memoryCapacity: 100,
+    podCount: 138, podCapacity: 210, nodeCount: 7,
+    networkIn: 1.7, networkOut: 1.0, apiLatencyP99: 118, etcdLatency: 10,
+    cpuHistory: genHistory(47, 13), memHistory: genHistory(53, 12), podHistory: genHistory(138, 16),
+    componentHealth: { apiServer: 'healthy', etcd: 'healthy', scheduler: 'healthy', controllerManager: 'healthy', coreDns: 'healthy', ingressController: 'healthy', cni: 'healthy', csi: 'healthy' },
+    alerts: [
+      { severity: 'info', message: 'Canary rollout completed for observability-agent', since: '35 min ago' },
+    ],
+  },
 };
 
 // ---------------------------------------------------------------------------
