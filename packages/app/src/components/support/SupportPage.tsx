@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { HeaderBannerLogos } from '../shared/HeaderBannerLogos';
 import {
   Grid,
@@ -392,6 +393,8 @@ export const SupportPage = () => {
                 </Typography>
                 <Box display="flex" gridGap={12}>
                   <Button
+                    component={RouterLink}
+                    to="/support/new-request"
                     variant="contained"
                     style={{ backgroundColor: '#fff', color: '#1B5E20', fontWeight: 600 }}
                     startIcon={<AddIcon />}
