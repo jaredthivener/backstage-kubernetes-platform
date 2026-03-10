@@ -24,10 +24,14 @@ import CloseIcon from '@material-ui/icons/Close';
 import { HeaderBannerLogos } from '../shared/HeaderBannerLogos';
 
 const useStyles = makeStyles(theme => ({
-  root: {
-    height: 'calc(100vh - 200px)',
+  chatCardContent: {
+    padding: 0,
     display: 'flex',
     flexDirection: 'column',
+    height: 'clamp(460px, calc(100dvh - 190px), 780px)',
+    [theme.breakpoints.down('sm')]: {
+      height: 'clamp(380px, calc(100dvh - 170px), 620px)',
+    },
   },
   chatContainer: {
     flex: 1,
@@ -39,7 +43,7 @@ const useStyles = makeStyles(theme => ({
     borderRadius: 8,
     marginBottom: theme.spacing(2),
     overflowY: 'auto',
-    minHeight: 400,
+    minHeight: 280,
   },
   messageWrapper: {
     display: 'flex',
@@ -68,11 +72,18 @@ const useStyles = makeStyles(theme => ({
   },
   inputArea: {
     display: 'flex',
+    alignItems: 'flex-end',
     gap: theme.spacing(1),
     marginBottom: theme.spacing(2),
   },
   inputField: {
     flex: 1,
+    '& .MuiOutlinedInput-root': {
+      alignItems: 'flex-end',
+    },
+    '& .MuiOutlinedInput-inputMultiline': {
+      overflow: 'auto !important',
+    },
   },
   attachedFilesContainer: {
     display: 'flex',
@@ -316,7 +327,7 @@ export const AIChatBotPage = () => {
           {/* Main Chat Area */}
           <Grid item xs={12} md={8}>
             <Card>
-              <CardContent style={{ padding: 0, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 250px)' }}>
+              <CardContent className={classes.chatCardContent}>
                 {/* Chat Messages */}
                 <Box className={classes.chatContainer}>
                   {messages.length === 0 ? (
@@ -416,17 +427,18 @@ export const AIChatBotPage = () => {
                       className={classes.inputField}
                       placeholder="Ask me about clusters, security, costs, monitoring..."
                       multiline
-                      maxRows={3}
+                      minRows={1}
+                      maxRows={6}
                       value={inputValue}
                       onChange={e => setInputValue(e.target.value)}
-                      onKeyPress={e => {
+                      onKeyDown={e => {
                         if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
+                          e.preventDefault();
                           handleSendMessage();
                         }
                       }}
                       disabled={isLoading}
                       variant="outlined"
-                      size="small"
                     />
                     <Tooltip title="Send message">
                       <span>
