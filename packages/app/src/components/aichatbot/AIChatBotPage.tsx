@@ -24,6 +24,11 @@ import CloseIcon from '@material-ui/icons/Close';
 import { HeaderBannerLogos } from '../shared/HeaderBannerLogos';
 
 const useStyles = makeStyles(theme => ({
+  chatCard: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    boxShadow: '0 10px 28px rgba(0, 26, 62, 0.14)',
+  },
   chatCardContent: {
     padding: 0,
     display: 'flex',
@@ -39,9 +44,7 @@ const useStyles = makeStyles(theme => ({
     flexDirection: 'column',
     gap: theme.spacing(2),
     padding: theme.spacing(2),
-    backgroundColor: theme.palette.background.default,
-    borderRadius: 8,
-    marginBottom: theme.spacing(2),
+    background: `linear-gradient(180deg, ${theme.palette.primary.dark}08 0%, ${theme.palette.background.default} 100%)`,
     overflowY: 'auto',
     minHeight: 280,
   },
@@ -74,22 +77,37 @@ const useStyles = makeStyles(theme => ({
     display: 'flex',
     alignItems: 'flex-end',
     gap: theme.spacing(1),
-    marginBottom: theme.spacing(2),
+  },
+  composerArea: {
+    padding: theme.spacing(1.5, 2),
+    backgroundColor: theme.palette.background.paper,
+  },
+  attachButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: theme.palette.action.hover,
   },
   inputField: {
     flex: 1,
     '& .MuiOutlinedInput-root': {
       alignItems: 'flex-end',
+      backgroundColor: theme.palette.background.default,
+      borderRadius: 12,
     },
     '& .MuiOutlinedInput-inputMultiline': {
       overflow: 'auto !important',
     },
   },
+  sendButton: {
+    alignSelf: 'flex-end',
+    minWidth: 104,
+    height: 40,
+    borderRadius: 10,
+  },
   attachedFilesContainer: {
     display: 'flex',
     flexWrap: 'wrap',
     gap: theme.spacing(1),
-    marginBottom: theme.spacing(1),
+    marginBottom: theme.spacing(1.5),
   },
   attachedFileChip: {
     backgroundColor: theme.palette.primary.light,
@@ -130,14 +148,41 @@ const useStyles = makeStyles(theme => ({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing(4),
+    flex: 1,
+    maxWidth: 680,
+    margin: '0 auto',
+    padding: theme.spacing(5, 4),
     textAlign: 'center',
   },
   emptyStateIcon: {
     fontSize: 64,
     color: theme.palette.primary.main,
     marginBottom: theme.spacing(2),
-    opacity: 0.5,
+    opacity: 0.55,
+  },
+  emptyStateTitle: {
+    fontWeight: 700,
+    marginBottom: theme.spacing(1),
+  },
+  emptyStateSubtitle: {
+    marginBottom: theme.spacing(3),
+    maxWidth: 480,
+  },
+  emptyStateActions: {
+    width: '100%',
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: theme.spacing(1),
+    [theme.breakpoints.down('sm')]: {
+      gridTemplateColumns: '1fr',
+    },
+  },
+  emptyStateAction: {
+    justifyContent: 'flex-start',
+    textAlign: 'left',
+    padding: theme.spacing(1.2, 1.5),
+    borderRadius: 10,
+    textTransform: 'none',
   },
 }));
 
@@ -326,27 +371,27 @@ export const AIChatBotPage = () => {
         <Grid container spacing={3}>
           {/* Main Chat Area */}
           <Grid item xs={12} md={8}>
-            <Card>
+            <Card className={classes.chatCard}>
               <CardContent className={classes.chatCardContent}>
                 {/* Chat Messages */}
                 <Box className={classes.chatContainer}>
                   {messages.length === 0 ? (
                     <Box className={classes.emptyStateContainer}>
                       <ChatIcon className={classes.emptyStateIcon} />
-                      <Typography variant="h6" style={{ marginBottom: 8 }}>
+                      <Typography variant="h5" className={classes.emptyStateTitle}>
                         Start a Conversation
                       </Typography>
-                      <Typography variant="body2" color="textSecondary" style={{ marginBottom: 24 }}>
+                      <Typography variant="body2" color="textSecondary" className={classes.emptyStateSubtitle}>
                         Ask me anything about your Kubernetes platform
                       </Typography>
-                      <Box display="grid" gridTemplateColumns="1fr 1fr" gridGap={8}>
+                      <Box className={classes.emptyStateActions}>
                         {EXAMPLE_QUERIES.slice(0, 4).map(query => (
                           <Button
                             key={query}
                             variant="outlined"
                             size="small"
                             onClick={() => handleSendMessage(query)}
-                            style={{ justifyContent: 'flex-start', textAlign: 'left' }}
+                            className={classes.emptyStateAction}
                           >
                             {query}
                           </Button>
@@ -388,7 +433,7 @@ export const AIChatBotPage = () => {
                 <Divider />
 
                 {/* Input Area */}
-                <Box style={{ padding: 16 }}>
+                <Box className={classes.composerArea}>
                   <input
                     id="file-input"
                     type="file"
@@ -417,7 +462,7 @@ export const AIChatBotPage = () => {
                         <IconButton
                           onClick={triggerFileInput}
                           disabled={isLoading}
-                          style={{ alignSelf: 'flex-end' }}
+                          className={classes.attachButton}
                         >
                           <AttachFileIcon />
                         </IconButton>
@@ -448,7 +493,7 @@ export const AIChatBotPage = () => {
                           onClick={() => handleSendMessage()}
                           disabled={isLoading || (!inputValue.trim() && attachedFiles.length === 0)}
                           endIcon={<SendIcon />}
-                          style={{ alignSelf: 'flex-end' }}
+                          className={classes.sendButton}
                         >
                           Send
                         </Button>
