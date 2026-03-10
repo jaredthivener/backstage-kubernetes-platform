@@ -41,7 +41,9 @@
     "typescript": "~5.8.0"
   },
   "resolutions": {
-    "tar": "7.5.7",
+    "@backstage/integration": "1.20.1",
+    "rollup": "4.59.0",
+    "tar": "7.5.11",
     "@types/react": "^18",
     "@types/react-dom": "^18"
   },
