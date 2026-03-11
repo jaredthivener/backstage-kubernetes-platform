@@ -61,14 +61,18 @@ This starts the Backstage app and backend in local development mode.
 
 ## Common Commands
 
-```sh
-yarn start
-yarn build:all
-yarn build:docs
-yarn lint
-yarn test
-yarn tsc
-```
+| Command | Use it when | What it does |
+| --- | --- | --- |
+| `yarn start` | You are developing the Backstage app locally | Starts the frontend and backend in local development mode |
+| `yarn build:all` | You want a full repository build check before opening or updating a PR | Builds the Backstage packages across the repo |
+| `yarn build:docs` | You changed anything under `docs-site/` and want to validate the published docs output | Builds the Docusaurus site used for GitHub Pages |
+| `yarn lint` | You want a fast lint pass on changes relative to `origin/main` | Runs repo linting only for files changed since the main branch |
+| `yarn lint:all` | You need a full lint baseline or are validating broad refactors | Runs lint checks across the entire repository |
+| `yarn test` | You changed app or backend logic and want the standard automated test pass | Runs the Backstage test suite |
+| `yarn test:e2e` | You are validating browser-level behavior and Playwright coverage | Runs end-to-end tests |
+| `yarn tsc` | You changed TypeScript code and want the fastest type-safety check | Runs the standard TypeScript compiler pass |
+| `yarn tsc:full` | You need the strictest type-checking pass without incremental shortcuts | Runs a full TypeScript check with stricter validation settings |
+| `yarn docs:serve` | You want to preview the built docs site locally instead of the Backstage app | Serves the docs output locally |
 
 ## Documentation
 
