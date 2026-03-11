@@ -37,6 +37,8 @@
   --ifm-navbar-background-color: rgba(8, 16, 30, 0.88);
   --ifm-footer-background-color: #040813;
   --ifm-font-color-base: #ebf3fb;
+  --ifm-font-color-secondary: #bfd1e4;
+  --ifm-heading-color: #f3f8fd;
   --docusaurus-highlighted-code-line-bg: rgba(125, 190, 240, 0.18);
 }
 
