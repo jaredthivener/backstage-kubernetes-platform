@@ -8,6 +8,9 @@
   --ifm-color-primary-lightest: #3d73b1;
   --ifm-background-color: #f5f7fa;
   --ifm-background-surface-color: #ffffff;
+  --ifm-font-color-base: #243b53;
+  --ifm-font-color-secondary: #48627d;
+  --ifm-heading-color: #0f2742;
   --ifm-navbar-background-color: rgba(255, 255, 255, 0.9);
   --ifm-navbar-shadow: 0 12px 30px rgba(0, 26, 62, 0.08);
   --ifm-footer-background-color: #001a3e;

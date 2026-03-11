@@ -61,7 +61,7 @@ const config = {
     ({
       image: 'img/kubernetes.svg',
       colorMode: {
-        defaultMode: 'light',
+        defaultMode: 'dark',
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
