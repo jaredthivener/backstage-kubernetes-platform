@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Morgan Stanley KaaS">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#001a3e" />
+      <stop offset="100%" stop-color="#0078d4" />
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="28" fill="url(#bg)" />
+  <path d="M24 85V34h11l13 21 13-21h11v51H61V53L48 73H47L35 54v31H24Z" fill="#fff" />
+  <path d="M82 35h14c8 0 14 5 14 13 0 5-2 9-7 11l9 26H100l-8-23h-1v23H82V35Zm14 19c3 0 5-2 5-5 0-4-2-5-5-5h-5v10h5Z" fill="#7dbef0" />
+</svg>

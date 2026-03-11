@@ -7,12 +7,18 @@
   },
   "scripts": {
     "start": "backstage-cli repo start",
+    "serve": "yarn docs:serve",
     "build:backend": "yarn workspace backend build",
     "build:all": "backstage-cli repo build --all",
+    "build:docs": "yarn workspace backstage-kubernetes-platform-docs build",
     "build-image": "yarn workspace backend build-image",
     "tsc": "tsc",
     "tsc:full": "tsc --skipLibCheck false --incremental false",
     "clean": "backstage-cli repo clean",
+    "docs:install": "yarn install",
+    "docs:start": "yarn workspace backstage-kubernetes-platform-docs start",
+    "docs:serve": "yarn workspace backstage-kubernetes-platform-docs serve",
+    "docs:typecheck": "yarn workspace backstage-kubernetes-platform-docs typecheck",
     "test": "backstage-cli repo test",
     "test:all": "backstage-cli repo test --coverage",
     "test:e2e": "playwright test",
@@ -25,7 +31,8 @@
   "workspaces": {
     "packages": [
       "packages/*",
-      "plugins/*"
+      "plugins/*",
+      "docs-site"
     ]
   },
   "devDependencies": {

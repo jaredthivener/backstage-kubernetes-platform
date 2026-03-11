@@ -33,6 +33,8 @@ node_modules/
 # Build output
 dist
 dist-types
+docs-site/build
+docs-site/.docusaurus
 
 # Temporary change files created by Vim
 *.swp

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" role="img" aria-label="Kubernetes platform architecture">
+  <rect width="720" height="420" rx="28" fill="#08101e"/>
+  <g opacity="0.18" stroke="#7dbef0">
+    <path d="M80 0v420"/>
+    <path d="M200 0v420"/>
+    <path d="M320 0v420"/>
+    <path d="M440 0v420"/>
+    <path d="M560 0v420"/>
+    <path d="M0 90h720"/>
+    <path d="M0 210h720"/>
+    <path d="M0 330h720"/>
+  </g>
+  <rect x="52" y="48" width="154" height="92" rx="18" fill="#0f1b31" stroke="#4da3e8"/>
+  <rect x="282" y="48" width="154" height="92" rx="18" fill="#0f1b31" stroke="#4da3e8"/>
+  <rect x="512" y="48" width="154" height="92" rx="18" fill="#0f1b31" stroke="#4da3e8"/>
+  <rect x="166" y="228" width="180" height="110" rx="20" fill="#10223d" stroke="#7dbef0"/>
+  <rect x="374" y="228" width="180" height="110" rx="20" fill="#10223d" stroke="#7dbef0"/>
+  <path d="M206 94h76" stroke="#7dbef0" stroke-width="2"/>
+  <path d="M436 94h76" stroke="#7dbef0" stroke-width="2"/>
+  <path d="M282 94l-30 0" stroke="#7dbef0" stroke-width="2"/>
+  <path d="M512 94l-30 0" stroke="#7dbef0" stroke-width="2"/>
+  <path d="M359 140v62" stroke="#7dbef0" stroke-width="2" stroke-dasharray="8 8"/>
+  <path d="M256 228v-34h103" stroke="#7dbef0" stroke-width="2" stroke-dasharray="8 8"/>
+  <path d="M464 228v-34H359" stroke="#7dbef0" stroke-width="2" stroke-dasharray="8 8"/>
+  <text x="76" y="80" fill="#cfe8fc" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">Backstage</text>
+  <text x="76" y="106" fill="#8fbce6" font-family="Segoe UI, Arial, sans-serif" font-size="13">Portal + Templates</text>
+  <text x="306" y="80" fill="#cfe8fc" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">GitOps</text>
+  <text x="306" y="106" fill="#8fbce6" font-family="Segoe UI, Arial, sans-serif" font-size="13">Repos + ArgoCD</text>
+  <text x="536" y="80" fill="#cfe8fc" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">Cluster API</text>
+  <text x="536" y="106" fill="#8fbce6" font-family="Segoe UI, Arial, sans-serif" font-size="13">Fleet Management</text>
+  <text x="194" y="262" fill="#cfe8fc" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">Management Clusters</text>
+  <text x="194" y="288" fill="#8fbce6" font-family="Segoe UI, Arial, sans-serif" font-size="13">Azure, AWS, GCP</text>
+  <text x="402" y="262" fill="#cfe8fc" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">Workload Clusters</text>
+  <text x="402" y="288" fill="#8fbce6" font-family="Segoe UI, Arial, sans-serif" font-size="13">Provisioned from templates</text>
+</svg>

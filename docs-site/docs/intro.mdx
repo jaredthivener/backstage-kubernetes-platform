@@ -1,0 +1,61 @@
+---
+title: Platform Overview
+sidebar_position: 1
+description: What this Backstage Kubernetes platform is, who it serves, and how the major pieces fit together.
+---
+
+# Platform Overview
+
+This repository implements a Backstage-based Kubernetes platform focused on self-service cluster operations and developer enablement.
+
+The product combines three concerns that usually end up scattered across internal wikis and tribal knowledge:
+
+1. A product surface in the Backstage portal for cluster inventory, workflows, docs, support, cost, monitoring, security, DORA, and add-ons.
+2. A delivery model based on GitOps, Cluster API, and cloud-specific management clusters.
+3. A set of templates and repo conventions that let platform teams standardize Day 1 and Day 2 operations.
+
+## What developers can do here
+
+- Browse clusters across AKS, EKS, and GKE.
+- Launch scaffolder workflows for provisioning, scaling, upgrading, destroying, and namespace requests.
+- Explore platform documentation and internal articles.
+- Review security, monitoring, cost, and support surfaces from a single navigation model.
+- Extend the platform by editing templates, catalog data, frontend components, or backend plugins.
+
+## Product areas represented in the app
+
+The Backstage frontend makes the platform feel like a product, not just a bundle of plugins. The main areas exposed in the app map directly to the documentation in this site:
+
+| Product area | Why it exists |
+| --- | --- |
+| Dashboard | Summary view for platform health and adoption |
+| Clusters | Inventory and per-cluster detail views |
+| Platforms | Cloud-provider entry points for AKS, EKS, and GKE |
+| Security | Compliance and hardening workflows |
+| Cost | FinOps and rightsizing visibility |
+| Monitoring | Observability workflows and signal review |
+| DORA Metrics | Engineering throughput and delivery health |
+| Tools | Utility surface for platform teams |
+| Docs | Documentation hub plus TechDocs |
+| Support | Request intake and operational assistance |
+| AI Chat Bot | Conversational support surface |
+
+## Recommended reading order
+
+If you are new to the repository, read these next:
+
+1. [Local development](./getting-started/local-development.md)
+2. [Platform architecture](./reference/platform-architecture.md)
+3. [First cluster workflow](./getting-started/first-cluster-workflow.md)
+4. [Repository map](./reference/repository-map.md)
+
+## Design principles behind this documentation site
+
+- Task-first navigation: guides are organized around what a developer is trying to do.
+- Product alignment: sections match the actual app, templates, and GitOps model.
+- Minimal duplication: this site documents the repo and product; TechDocs can stay focused on component-level docs.
+- GitHub-native publishing: the site is designed to publish cleanly on GitHub Pages from this repository.
+
+:::tip
+Use the local search in the navbar if you already know a feature name such as `cluster-upgrade`, `ArgoCD`, or `TechDocs`.
+:::
